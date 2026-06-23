@@ -10,7 +10,7 @@ export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 export TMPDIR="${TMPDIR:-${PACKAGE_ROOT}/tmp}"
 mkdir -p "${TMPDIR}"
 
-PYTHON_BIN="${PYTHON_BIN:-/home/ugproj/anaconda3/envs/swebench/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 DEVICE="${DEVICE:-cuda}"
 THREADS="${THREADS:-16}"
 ENCODER_NAME="${ENCODER_NAME:-microsoft/codebert-base}"

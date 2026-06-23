@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PYTHON_BIN="${PYTHON_BIN:-/home/ugproj/anaconda3/envs/swebench/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 RUN_DIR="${RUN_DIR:-paper/experiments/rq_final_lightgbm_17}"
 FEATURE_PRESET="${FEATURE_PRESET:-rich_af_gold}"
 if [[ "${FEATURE_PRESET}" == "rich_af_gold" ]]; then

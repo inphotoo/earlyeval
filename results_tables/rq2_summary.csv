@@ -1,4 +1,0 @@
-benchmark,dataset_key,n_agents,signed_aggregate_delta_p1_pp,spearman_rho_full_vs_earlyeval_rank,mean_abs_delta_p1_pp,sum_saved_input_tokens_est,sum_saved_output_tokens_est
-SWE-bench Verified,sweverify,16,0.7816,0.9971,1.1142,3234285638.0,27354719.0
-TerminalBench,terminalbench,33,-0.126,0.9997,0.1727,965838772.0,18270627.0
-Toolathlon,toolathlon,22,-0.2248,0.9997,0.2246,1234361213.0,4097927.0

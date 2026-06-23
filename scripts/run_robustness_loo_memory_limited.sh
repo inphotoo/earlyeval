@@ -13,7 +13,7 @@ export NUMEXPR_NUM_THREADS=1
 export BLIS_NUM_THREADS=1
 export SWE_MAX_CPU_THREADS=1
 export MALLOC_ARENA_MAX=2
-PYTHON_BIN="${PYTHON_BIN:-/home/ugproj/anaconda3/envs/swebench/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 PARQUET_BATCH_SIZE="${SWE_ROBUSTNESS_LOO_BATCH_SIZE:-4096}"
 
 # Default cap is 64 GiB virtual memory per Python process. Override by setting

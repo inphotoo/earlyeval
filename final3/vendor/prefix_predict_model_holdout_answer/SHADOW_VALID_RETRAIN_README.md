@@ -19,7 +19,7 @@ model_holdout_shadow_valid_retrain.py
 ## 推荐先跑
 
 ```bash
-cd /data3/djs/SweBench/SweBench_Organized_Package_final3
+cd /path/to/SweBench_Organized_Package_final3
 
 python final3/vendor/prefix_predict_model_holdout_answer/model_holdout_shadow_valid_retrain.py \
   --run-name model_holdout_answer_calibrated_full \

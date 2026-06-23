@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_rq_final_full16_models.sh"
 
-PYTHON_BIN="${PYTHON_BIN:-/home/ugproj/anaconda3/envs/swebench/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 RUN_DIR="${RUN_DIR:-paper/experiments/rq_final_lightgbm_17/lightgbm_main}"
 OUTPUT_DIR="${OUTPUT_DIR:-paper/experiments/rq_final_lightgbm_17/policy_ablation/sweverify_policy_mode_full16}"
 TEST_MODELS="${TEST_MODELS:-$(rq_final_full16_models_string)}"

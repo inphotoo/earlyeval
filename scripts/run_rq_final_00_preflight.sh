@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PYTHON_BIN="${PYTHON_BIN:-/home/ugproj/anaconda3/envs/swebench/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 cd "$(dirname "$0")/.."
 
 "${PYTHON_BIN}" -m final3.cli check preflight \

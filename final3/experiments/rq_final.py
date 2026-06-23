@@ -586,16 +586,19 @@ def _ram_peak_lock_path(run_dir: Path) -> Path:
     return run_dir / "ram_peak.lock"
 
 
+def _python_executable(cfg: RqFinalConfig) -> Path:
+    paths = load_paths()
+    value = paths.python_executable or Path(str((cfg.payload.get("runtime") or {}).get("python_executable") or sys.executable))
+    return value if value.is_absolute() else _resolve_project_path(value)
+
+
 def _lightgbm_command(cfg: RqFinalConfig, *, test_model: str, fold_output_dir: Path) -> list[str]:
-    paths_cfg = yaml.safe_load(_resolve_project_path("configs/paths.yaml").read_text(encoding="utf-8")) or {}
-    runtime = paths_cfg.get("runtime") or {}
-    python_bin = runtime.get("python_executable") or (cfg.payload.get("runtime") or {}).get("python_executable") or sys.executable
     dataset = (cfg.payload.get("datasets") or {})["sweverify"]
     main = cfg.payload.get("main_model") or {}
     resources = cfg.payload.get("resources") or {}
     excluded_train_models = sorted(_excluded_models_from_config(cfg) - {test_model})
     command = [
-        str(_resolve_project_path(python_bin) if not Path(str(python_bin)).is_absolute() else Path(str(python_bin))),
+        str(_python_executable(cfg)),
         str(_legacy_trainer_path(cfg)),
         "--run-name",
         str(main.get("run_name", "model_holdout_answer_calibrated_full")),

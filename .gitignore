@@ -16,11 +16,15 @@ data/
 paper/data/
 paper/experiments/
 paper/results/
+results_tables/
 outputs/
 runs/
 checkpoints/
 caches/
 cache/
+*.csv
+*.tsv
+*.tex
 *.parquet
 *.pkl
 *.joblib
@@ -36,4 +40,3 @@ nohup.out
 
 # Local machine paths
 configs/paths.yaml
-

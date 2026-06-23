@@ -11,6 +11,7 @@ from typing import Any
 import yaml
 
 from final3.core.io import ensure_dir, write_json, write_table
+from final3.core.paths import load_paths
 from final3.experiments.rq_final import (
     RqFinalConfig,
     _aggregate_selected_policy,
@@ -141,9 +142,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def _python_executable(cfg: RqFinalConfig) -> Path:
-    paths_cfg = yaml.safe_load(_resolve_project_path("configs/paths.yaml").read_text(encoding="utf-8")) or {}
-    runtime = paths_cfg.get("runtime") or {}
-    value = runtime.get("python_executable") or (cfg.payload.get("runtime") or {}).get("python_executable") or sys.executable
+    paths = load_paths()
+    value = paths.python_executable or Path(str((cfg.payload.get("runtime") or {}).get("python_executable") or sys.executable))
     path = Path(str(value))
     return path if path.is_absolute() else _resolve_project_path(path)
 

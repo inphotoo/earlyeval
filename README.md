@@ -1,118 +1,214 @@
 # EarlyEval Code Release
 
-This is the code-complete GitHub-ready bundle for the EarlyEval/SWE-bench
-Verified, TerminalBench, and Toolathlon experiments. It includes the active
-`final3` source tree plus the vendored answer-aware training, feature,
-baseline, and posthoc scripts used by the experiments. It intentionally
-excludes large data, trained model artifacts, prediction parquet files,
-tokenizer caches, and per-trajectory supporting CSVs.
+This repository is a code-only release for the EarlyEval experiments on
+SWE-bench Verified, TerminalBench, and Toolathlon.
 
-## What Is Included
+It contains the active training, testing, feature-construction, ablation,
+architecture-comparison, policy-replay, and table-generation code. It does not
+contain generated paper tables, trained models, prediction files, prefix parquet
+tables, tokenizer caches, or other run artifacts.
 
-- `final3/`: Python package for feature construction, LightGBM training,
-  policy replay, ablations, robustness evaluation, and reporting helpers.
-- `final3/vendor/prefix_predict_model_holdout_answer/`: vendored source code
-  for the answer-aware trainer, feature engineer, policy evaluator, and
-  historical posthoc analysis scripts. Runtime code uses this copy rather than
-  importing modules from an external old package.
-- `final3/vendor/architecture_baselines/`: MLP, BERT/CodeBERT, local LLM-logit,
-  and Qwen baseline code.
-- `scripts/`: shell entrypoints used to run the final experiments.
-- `configs/`: experiment configuration. `paths.yaml` is intentionally omitted;
-  start from `configs/paths.example.yaml` for a new machine.
-- `paper_reporting/build_rq_tables_bundle.py`: final RQ1/RQ2/RQ3 table builder.
-- `paper_reporting/build_internal_review_swe16.py`: SWE tokenizer/ranking/token
-  audit used by the internal review tables.
-- `results_tables/`: small paper-facing CSV/LaTeX outputs from the latest run.
-  This includes `main_training_feature_manifest.md`, the block-level feature
-  summary, and the full 722-column feature list for the main SWE model.
+## Repository Contents
 
-## What Is Not Included
+- `final3/`: the main Python package used for experiment orchestration,
+  checks, dataset contracts, split handling, policy replay, metrics, reports,
+  and final RQ experiment runners.
+- `final3/vendor/prefix_predict_model_holdout_answer/`: the vendored
+  answer-aware SWE pipeline used by the final runs. This includes the active
+  `run_all.py`, `feature_engineer.py`, trainer, evaluator, policy, and post-hoc
+  source code. The release uses this vendored copy instead of importing from an
+  older external package.
+- `final3/vendor/architecture_baselines/`: architecture baselines used for
+  model comparison, including direct MLP, BERT/CodeBERT, local LLM-logit, and
+  Qwen fine-tuning code.
+- `scripts/`: shell entrypoints for preflight checks, SWE full-16 LightGBM
+  runs, robustness runs, ablations, LR/TF-IDF, MLP, BERT/CodeBERT, LLM-logit,
+  latency/cost audits, and full reproduction orchestration.
+- `configs/`: portable experiment configuration and policy presets.
+  `configs/paths.yaml` is intentionally not committed because it is
+  machine-local; copy `configs/paths.example.yaml` if you want a local override.
+- `paper_reporting/`: code that rebuilds the paper-facing RQ tables from
+  completed artifacts.
+- `VERIFY_RELEASE_LOCAL.sh`: local audit script that checks this code release
+  against the active training/testing source tree.
 
-- Raw or processed prefix parquet tables.
-- Trained feature-engineer pickles, model artifacts, and fold prediction
-  parquet files.
-- Embedding/tokenizer/model caches.
-- The 63MB `supporting/locked095_decisions_all_benchmarks.csv` style files.
+## Not Included
 
-Those are artifacts, not source code. They should be published separately if
-reviewers need exact post-hoc regeneration.
+The repository intentionally excludes generated artifacts:
 
-## Main Entry Points
+- raw SWE trajectory parquet files;
+- processed `prefix_table*.parquet` and `step_table.parquet` files;
+- FeatureEngineer pickle files and trained fold models;
+- fold prediction parquet files and policy sweep outputs;
+- tokenizer, embedding, and model-download caches;
+- generated CSV/TeX paper tables and feature manifests.
 
-Run the SWE full-16 LightGBM pipeline:
+Those files are outputs or external inputs, not source code. Rebuild them with
+the commands below or publish them separately as data artifacts.
 
-```bash
-bash scripts/run_pure16_full_pipeline.sh
-```
+## Environment
 
-Run SWE full-16 ablations:
-
-```bash
-bash scripts/run_rq_final_08_ablation_default_reg_full16.sh
-bash scripts/run_rq_final_08_ablation_fine_grained_full16.sh
-
-RUN_SUBDIR=sweverify_ablation_feature_groups_full16 \
-PROFILES=feature_groups \
-TEST_MODELS="$(bash -lc 'source scripts/_rq_final_full16_models.sh; rq_final_full16_models_string')" \
-bash scripts/run_rq_final_08_ablation_execute.sh
-```
-
-Run architecture comparisons:
+Install the Python dependencies in a fresh environment:
 
 ```bash
-bash scripts/run_rq_final_09_direct_mlp_full16.sh
-bash scripts/run_rq_final_09_bert_finetune_full16.sh
+python -m pip install -r requirements-github.txt
 ```
 
-Run TerminalBench/Toolathlon leave-one-agent robustness:
+The scripts default to the `python` on `PATH`. To pin a specific interpreter:
+
+```bash
+export PYTHON_BIN=/path/to/python
+```
+
+Optional local path configuration:
+
+```bash
+cp configs/paths.example.yaml configs/paths.yaml
+# edit configs/paths.yaml for local data/artifact roots if needed
+```
+
+If `configs/paths.yaml` is absent, the code falls back to
+`configs/paths.example.yaml`.
+
+## Required Inputs
+
+For a full reproduction, provide the data paths expected by `configs/rq_final.yaml`:
+
+- SWE-bench Verified raw trajectory parquet directory, passed as
+  `SWE_PARQUET_DIR` to the SWE shared-artifact builder.
+- SWE-bench Verified official answer JSONL, defaulting to
+  `../data/swe_verify_500/offical_answer/test.jsonl` unless `VERIFIED_JSONL`
+  is set.
+- TerminalBench and Toolathlon prefix tables if reproducing robustness runs.
+  Their default relative paths are listed in `configs/rq_final.yaml`.
+- Optional Hugging Face or local model caches for BERT/CodeBERT, local
+  LLM-logit, and Qwen baselines.
+
+## Full Reproduction Driver
+
+The high-level orchestrator is:
+
+```bash
+bash scripts/run_earlyeval_full_reproduction.sh
+```
+
+By default it runs preflight checks and a dry-run plan. Enable stages with
+environment flags:
+
+```bash
+BUILD_SWE_SHARED=1 \
+RUN_MAIN=1 \
+RUN_ROBUSTNESS=1 \
+RUN_ABLATIONS=1 \
+RUN_LR_TFIDF=1 \
+RUN_MLP=1 \
+RUN_BERT=1 \
+RUN_LLM_LOGIT=1 \
+BUILD_TABLES=1 \
+SWE_PARQUET_DIR=/path/to/swe/tool-parquets \
+bash scripts/run_earlyeval_full_reproduction.sh
+```
+
+The driver writes generated artifacts under the configured experiment/data
+roots; those outputs are not part of this code-only repository.
+
+## Stage-by-Stage Commands
+
+Build the shared SWE prefix and FeatureEngineer artifacts from raw SWE parquet:
+
+```bash
+SWE_PARQUET_DIR=/path/to/swe/tool-parquets \
+bash scripts/run_earlyeval_00_build_swe_shared_artifacts.sh
+```
+
+Run the SWE-bench Verified full-16 LightGBM main experiment:
+
+```bash
+bash scripts/run_rq_final_03_main_lightgbm_execute.sh
+bash scripts/run_rq_final_04_summarize_lightgbm_current.sh
+bash scripts/run_rq_final_05_lightgbm_policy_sweep_valid_acc.sh
+bash scripts/run_rq_final_12_main_latency_cost.sh
+```
+
+Run TerminalBench and Toolathlon leave-one-agent robustness:
 
 ```bash
 bash scripts/run_rich_loo_hard_memory_limited.sh
 ```
 
-Regenerate the final RQ tables from completed artifacts:
+Run the SWE-bench Verified full-16 feature and component ablations:
+
+```bash
+source scripts/_rq_final_full16_models.sh
+
+RUN_SUBDIR=sweverify_ablation_feature_groups_full16 \
+PROFILES=feature_groups \
+TEST_MODELS="$(rq_final_full16_models_string)" \
+bash scripts/run_rq_final_08_ablation_execute.sh
+
+RUN_SUBDIR=sweverify_ablation_feature_groups_full16 \
+PROFILES=component_with_model_id \
+TEST_MODELS="$(rq_final_full16_models_string)" \
+bash scripts/run_rq_final_08_ablation_execute.sh
+
+bash scripts/run_rq_final_08_ablation_default_reg_full16.sh
+bash scripts/run_rq_final_08_ablation_fine_grained_full16.sh
+```
+
+Run architecture comparisons:
+
+```bash
+bash scripts/run_rq_final_06_model_compare_lr_tfidf.sh
+bash scripts/run_rq_final_09_direct_mlp_full16.sh
+bash scripts/run_rq_final_09_bert_finetune_full16.sh
+bash scripts/run_rq_final_09_llm_logit_full16.sh
+```
+
+Rebuild paper-facing tables from completed artifacts:
 
 ```bash
 export SWEBENCH_PACKAGE_ROOT="$(pwd)"
-export EARLYEVAL_EXPERIMENT_DIR="/path/to/paper/experiments/rq_final_lightgbm_17"
-export EARLYEVAL_PAPER_DATA="/path/to/paper/icse_submission_draft/data"
-export RQ_TABLES_OUT="$(pwd)/results_tables_regenerated"
+export EARLYEVAL_EXPERIMENT_DIR=/path/to/paper/experiments/rq_final_lightgbm_17
+export EARLYEVAL_PAPER_DATA=/path/to/paper/icse_submission_draft/data
+export RQ_TABLES_OUT=/path/to/output/rq_tables
 
 python paper_reporting/build_rq_tables_bundle.py
 ```
 
-## Current Paper Outputs
+The table builder is included as code. Its CSV/TeX outputs are generated files
+and are intentionally not committed.
 
-The latest small outputs are already copied into `results_tables/`:
+## Main Feature Construction
 
-- `rq1_main.csv`
-- `rq1_threshold_sweep_compact.csv`
-- `threshold_sweep_all_benchmarks.csv`
-- `rq2_top10.csv`
-- `rq2_per_agent_all.csv`
-- `rq2_summary.csv`
-- `rq3_ablation_locked095_paper.csv`
-- `token_input_output_summary.csv`
-- `token_input_output_by_agent.csv`
-- `main_training_feature_manifest.md`
-- `main_training_feature_blocks.csv`
-- `main_training_feature_columns.csv`
-- `tables_latex_draft.tex`
+The main SWE-bench Verified model is `I_LightGBM_Dense_AF`, configured in
+`configs/rq_final.yaml` and trained through the vendored trainer. The important
+source files are:
 
-`model_price_template.csv` is included, but Saved$ is not filled because it
-requires a model-specific input/output price table.
+- `final3/vendor/prefix_predict_model_holdout_answer/feature_engineer.py`:
+  dense numeric/boolean/categorical features and TF-IDF/SVD text features.
+- `final3/vendor/prefix_predict_model_holdout_answer/feature_dictionary.md`:
+  human-readable feature family documentation.
+- `final3/vendor/prefix_predict_model_holdout_answer/model_holdout_shadow_valid_retrain.py`:
+  leave-one-model training/evaluation backbone used by the final SWE folds.
+- `final3/experiments/rq_final.py`: final full-16 LightGBM orchestration.
+- `final3/experiments/rq_final_ablation.py`: full-16 ablation orchestration.
+- `final3/experiments/lr_tfidf_baselines.py`: LR/TF-IDF comparison features.
+- `final3/vendor/architecture_baselines/train_direct_dual_head_mlp.py`:
+  direct MLP baseline over the shared feature representation.
+- `final3/vendor/architecture_baselines/bert_baselines/`: BERT/CodeBERT
+  baseline feature and fine-tuning code.
 
-## Reproducibility Notes
+For the final main run, concrete `model_id` identity is masked from training
+features unless a component ablation explicitly enables it.
 
-- The locked main operating point is calibrated dual-head `s=f=0.95`,
-  `min_step=0`, `consecutive=1`.
-- SWE-bench Verified uses the full-16 `lightgbm_main` folds.
-- The main SWE-bench Verified predictor is `I_LightGBM_Dense_AF`: dense
-  structured features plus task/action/feedback TF-IDF SVD blocks. Concrete
-  `model_id` identity is masked by `--mask-train-model-id`; see
-  `results_tables/main_training_feature_manifest.md`.
-- TerminalBench and Toolathlon use the rich leave-one-agent folds.
-- Main token savings use a uniform chars/4 estimate across all three
-  benchmarks: input/context-call tokens for skipped future calls, and generated
-  output tokens for skipped model text.
+## Local Release Audit
+
+Before pushing a refreshed code release, run:
+
+```bash
+bash VERIFY_RELEASE_LOCAL.sh /path/to/SweBench_Organized_Package_final3
+```
+
+The audit checks that `final3/`, `scripts/`, `configs/` except
+`configs/paths.yaml`, and the reporting scripts match the active source tree.
+It also compiles Python files and syntax-checks shell scripts.

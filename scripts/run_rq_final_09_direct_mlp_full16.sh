@@ -6,7 +6,7 @@ PACKAGE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPO_ROOT="$(cd "${PACKAGE_ROOT}/.." && pwd)"
 source "${SCRIPT_DIR}/_rq_final_full16_models.sh"
 
-PYTHON_BIN="${PYTHON_BIN:-/home/ugproj/anaconda3/envs/swebench/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 THREADS="${THREADS:-64}"
 MAX_PARALLEL_FOLDS="${MAX_PARALLEL_FOLDS:-1}"
 TEXT_BATCH_SIZE="${TEXT_BATCH_SIZE:-65536}"

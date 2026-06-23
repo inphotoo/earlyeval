@@ -15,7 +15,7 @@ export BLIS_NUM_THREADS="${THREADS:-1}"
 export SWE_MAX_CPU_THREADS="${THREADS:-1}"
 export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
 
-PYTHON_BIN="${PYTHON_BIN:-/home/ugproj/anaconda3/envs/swebench/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 RUN_DIR="${RUN_DIR:-paper/experiments/rq_final_lightgbm_17}"
 THREADS="${THREADS:-1}"
 VMEM_KB="${SWE_ABLATION_VMEM_KB:-52428800}"

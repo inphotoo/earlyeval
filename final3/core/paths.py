@@ -56,8 +56,19 @@ class ProjectPaths:
             path.mkdir(parents=True, exist_ok=True)
 
 
-def load_paths(config: str | Path | None = None) -> ProjectPaths:
+def _paths_config_path(config: str | Path | None = None) -> Path:
     cfg_path = _resolve(config or "configs/paths.yaml")
+    if cfg_path.exists():
+        return cfg_path
+    if config is None:
+        example = _resolve("configs/paths.example.yaml")
+        if example.exists():
+            return example
+    raise FileNotFoundError(f"paths config not found: {cfg_path}")
+
+
+def load_paths(config: str | Path | None = None) -> ProjectPaths:
+    cfg_path = _paths_config_path(config)
     payload: dict[str, Any] = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
     root = _resolve(payload.get("repo_root", ".."))
     legacy = payload.get("legacy", {}) or {}

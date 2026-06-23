@@ -6,7 +6,7 @@ run:
   seed: 42
 
 runtime:
-  python_executable: "/home/ugproj/anaconda3/envs/swebench/bin/python"
+  python_executable: null
 
 resources:
   execution: "serial"

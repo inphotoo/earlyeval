@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
-PYTHON_BIN="${PYTHON_BIN:-/home/ugproj/anaconda3/envs/swebench/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 OUTPUT_DIR="${OUTPUT_DIR:-paper/experiments/rq_final_lightgbm_17}"
 RUN_SUBDIR="${RUN_SUBDIR:-robustness_loo_model_holdout_rich_af_gold_memory_limited}"
 DATASETS="${DATASETS:-terminalbench}"
@@ -47,7 +47,7 @@ check_free_space() {
   fi
 }
 
-check_free_space /data3 "${MIN_FREE_GB}"
+check_free_space "${ROOT_DIR}" "${MIN_FREE_GB}"
 check_free_space /tmp "${MIN_FREE_GB}"
 
 echo "[two-lanes] generating command_index for ${DATASETS}"

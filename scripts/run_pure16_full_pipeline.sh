@@ -14,7 +14,7 @@ MAIN="paper/experiments/rq_final_lightgbm_17/lightgbm_main"
 
 # Always use the swebench env interpreter; the base anaconda python has an
 # incompatible numpy/pandas build that fails on import.
-PY="${PYTHON_BIN:-/home/ugproj/anaconda3/envs/swebench/bin/python}"
+PY="${PYTHON_BIN:-python}"
 
 # Conservative defaults: 2 parallel folds x 8 threads (~3GB RSS/fold,
 # ~6GB total) for extra memory safety. Raise MAX_PARALLEL_FOLDS to go faster.
