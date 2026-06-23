@@ -22,6 +22,10 @@ This GitHub-ready bundle was checked against the active training/testing tree at
   tokenizer/token audit script.
 - `results_tables/` matches the current paper-facing outputs copied from
   `paper/icse_submission_draft/rq_tables_reorg_20260623/`.
+- `results_tables/main_training_feature_manifest.md`,
+  `results_tables/main_training_feature_blocks.csv`, and
+  `results_tables/main_training_feature_columns.csv` document the exact
+  feature matrix used by the main SWE full-16 LightGBM run.
 - All Python files compile with `python -m py_compile`.
 - All shell scripts pass `bash -n`.
 

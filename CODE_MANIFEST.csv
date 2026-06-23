@@ -17,5 +17,8 @@ results_tables/rq3_ablation_locked095_paper.csv,Paper-facing RQ3 locked 0.95 abl
 results_tables/rq3_ablation_locked095.csv,Full RQ3 locked 0.95 ablation table with extra diagnostic columns.
 results_tables/token_input_output_summary.csv,Aggregate split of saved input/context-call tokens and output tokens.
 results_tables/token_input_output_by_agent.csv,Per-agent split of saved input/context-call tokens and output tokens.
+results_tables/main_training_feature_manifest.md,Human-readable manifest for the main SWE full-16 LightGBM feature matrix.
+results_tables/main_training_feature_blocks.csv,Block-level summary of included and excluded feature groups for the main SWE model.
+results_tables/main_training_feature_columns.csv,Full 722-column feature list used by I_LightGBM_Dense_AF in the main SWE run.
 results_tables/model_price_template.csv,Template for filling model-specific input/output prices.
 results_tables/tables_latex_draft.tex,LaTeX draft for RQ1/RQ2/RQ3.

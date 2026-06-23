@@ -37,6 +37,9 @@ for f in \
   rq3_ablation_locked095_paper.csv \
   token_input_output_summary.csv \
   token_input_output_by_agent.csv \
+  main_training_feature_manifest.md \
+  main_training_feature_blocks.csv \
+  main_training_feature_columns.csv \
   model_price_template.csv \
   tables_latex_draft.tex
 do
@@ -49,4 +52,3 @@ find "${RELEASE_ROOT}" -type f -name '*.py' -print0 | xargs -0 python -m py_comp
 find "${RELEASE_ROOT}/scripts" -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
 
 echo "[verify] ok: release bundle matches the current source tree."
-

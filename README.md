@@ -24,6 +24,8 @@ tokenizer caches, and per-trajectory supporting CSVs.
 - `paper_reporting/build_internal_review_swe16.py`: SWE tokenizer/ranking/token
   audit used by the internal review tables.
 - `results_tables/`: small paper-facing CSV/LaTeX outputs from the latest run.
+  This includes `main_training_feature_manifest.md`, the block-level feature
+  summary, and the full 722-column feature list for the main SWE model.
 
 ## What Is Not Included
 
@@ -93,6 +95,9 @@ The latest small outputs are already copied into `results_tables/`:
 - `rq3_ablation_locked095_paper.csv`
 - `token_input_output_summary.csv`
 - `token_input_output_by_agent.csv`
+- `main_training_feature_manifest.md`
+- `main_training_feature_blocks.csv`
+- `main_training_feature_columns.csv`
 - `tables_latex_draft.tex`
 
 `model_price_template.csv` is included, but Saved$ is not filled because it
@@ -103,6 +108,10 @@ requires a model-specific input/output price table.
 - The locked main operating point is calibrated dual-head `s=f=0.95`,
   `min_step=0`, `consecutive=1`.
 - SWE-bench Verified uses the full-16 `lightgbm_main` folds.
+- The main SWE-bench Verified predictor is `I_LightGBM_Dense_AF`: dense
+  structured features plus task/action/feedback TF-IDF SVD blocks. Concrete
+  `model_id` identity is masked by `--mask-train-model-id`; see
+  `results_tables/main_training_feature_manifest.md`.
 - TerminalBench and Toolathlon use the rich leave-one-agent folds.
 - Main token savings use a uniform chars/4 estimate across all three
   benchmarks: input/context-call tokens for skipped future calls, and generated
