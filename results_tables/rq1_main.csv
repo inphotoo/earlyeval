@@ -1,0 +1,4 @@
+benchmark,n_test_agents,precision_resolved,recall_resolved,f1_resolved,global_step_save_pct,input_token_save_pct_est,output_token_save_pct_est,coverage_pct,decision_accuracy_pct,resolve_change_pp,saved_input_tokens_est,saved_output_tokens_est,baseline_input_tokens_est,baseline_output_tokens_est,token_method
+SWE-bench Verified,16,93.8519,97.5864,95.6828,25.9654,32.8881,28.5542,34.811,95.0313,0.7816,3234285638.0,27354719.0,9834222036.0,95799228.0,context_call_input_chars4_plus_generated_output_chars4
+TerminalBench,33,90.7631,77.3973,83.549,11.9678,18.7239,12.35,10.1032,97.418,-0.126,965838772.0,18270627.0,5158313849.0,147940053.0,context_call_input_chars4_plus_generated_output_chars4
+Toolathlon,22,,0.0,,13.4063,27.5649,17.3655,16.3435,98.6242,-0.2248,1234361213.0,4097927.0,4478022894.0,23598055.0,context_call_input_chars4_plus_generated_output_chars4

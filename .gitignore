@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environments
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Large local data and experiment artifacts
+data/
+paper/data/
+paper/experiments/
+paper/results/
+outputs/
+runs/
+checkpoints/
+caches/
+cache/
+*.parquet
+*.pkl
+*.joblib
+*.pt
+*.pth
+*.bin
+*.safetensors
+
+# Logs
+*.log
+*.nohup.log
+nohup.out
+
+# Local machine paths
+configs/paths.yaml
+

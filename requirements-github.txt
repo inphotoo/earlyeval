@@ -1,0 +1,13 @@
+numpy
+pandas
+pyarrow
+scipy
+scikit-learn
+lightgbm
+joblib
+pyyaml
+tqdm
+tiktoken
+transformers
+torch
+sentencepiece

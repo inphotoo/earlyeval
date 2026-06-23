@@ -1,0 +1,52 @@
+# SWE-smith Trajectory Action Taxonomy
+# 文档 §6 定义的动作分类体系
+
+major_types:
+  - read
+  - edit
+  - execute
+  - cleanup
+  - submit
+
+subtypes:
+  read:
+    - read_view        # str_replace_editor view
+    - read_search      # grep / find / ls / cat / head / tail / sed -n / awk / wc
+
+  edit:
+    - edit_create      # str_replace_editor create
+    - edit_replace     # str_replace_editor str_replace
+    - edit_insert      # str_replace_editor insert
+    - edit_undo        # str_replace_editor undo_edit
+
+  execute:
+    - test             # pytest / python -m pytest / tox / manage.py test / nosetests / python -m unittest / py.test
+    - run_python       # python xxx.py / python -c / ipython (非 test)
+    - run_cli          # 其他 bash 命令
+    - git              # git status / git diff / git apply 等
+
+  cleanup:
+    - cleanup          # rm / unlink
+
+  submit:
+    - submit           # submit 命令
+
+classification_priority:
+  description: >
+    对于 bash 命令，分类优先级严格如下（从高到低）：
+    1. test （必须先于 run_python，避免 python -m pytest 被误判）
+    2. run_python
+    3. git
+    4. cleanup
+    5. read_search
+    6. run_cli（兜底）
+
+test_patterns:
+  - "pytest"
+  - "python -m pytest"
+  - "python -m unittest"
+  - "py.test"
+  - "tox"
+  - "manage.py test"
+  - "nosetests"
+  - "python *test*.py"

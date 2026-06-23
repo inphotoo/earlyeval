@@ -1,0 +1,12 @@
+presets:
+  current_safe_stop:
+    description: "Paper-facing default: no_model_id + strong_reg + dual-head + calibrated I + s0.95/f0.95 + min0 + k1"
+    predictor: "I_LightGBM_Dense_AF"
+    score_mode: "calibrated"
+    policy_mode: "dual"
+    success_thr: 0.95
+    failure_thr: 0.95
+    min_step: 0
+    consecutive: 1
+    selection: "validation-only valid-minimax"
+    default_mode: "main"

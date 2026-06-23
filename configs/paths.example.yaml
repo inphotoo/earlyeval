@@ -1,0 +1,27 @@
+repo_root: ".."
+data_root: "../data"
+paper_root: "paper"
+paper_raw_root: "paper/data/raw"
+paper_artifact_root: "paper/data/artifacts"
+paper_results_root: "paper/results"
+check_root: "paper/checks"
+output_root: "outputs"
+
+runtime:
+  python_executable: null
+
+legacy:
+  final_root: "../SweBench_Organized_Package_final"
+  final2_root: "../SweBench_Organized_Package_final2"
+  answer_module_root: "../SweBench_Organized_Package_final/modules/prefix_predict_model_holdout_answer"
+
+vendor:
+  answer_module_root: "final3/vendor/prefix_predict_model_holdout_answer"
+
+shared_data:
+  answer_root: "../data/prefix_predict_model_holdout_answer/model_holdout_answer_shared"
+  prefix_table: "../data/prefix_predict_model_holdout_answer/model_holdout_answer_shared/prefix_table.parquet"
+  prefix_table_filtered: "../data/prefix_predict_model_holdout_answer/model_holdout_answer_shared/prefix_table_filtered.parquet"
+  prefix_table_answer_enriched: "../data/prefix_predict_model_holdout_answer/model_holdout_answer_shared/prefix_table_answer_enriched.parquet"
+  step_table: "../data/prefix_predict_model_holdout_answer/model_holdout_answer_shared/step_table.parquet"
+  feature_engineer_with_model: "../SweBench_Organized_Package_final/modules/prefix_predict_model_holdout_answer/runs/model_holdout_answer_calibrated_full/models/feature_engineer_with_model.pkl"

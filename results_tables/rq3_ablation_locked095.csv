@@ -1,0 +1,13 @@
+profile,predictor,score_mode,policy_mode,success_thr,failure_thr,n_folds,n_trajectories,coverage_pct,decision_accuracy_pct,global_step_save_pct,resolve_change_pp,mean_abs_resolve_change_pp,min_step,consecutive,original_resolved,adjusted_resolved,false_negatives,false_positives,decided_trajectories,step_save_pct,true_negatives,true_positives
+component_default_reg,I_LightGBM_Dense_AF,calibrated,dual,0.95,0.95,16,7805,32.03,94.84,25.08,0.6,1.11,0,1,4754,4801,41,88,2500,21.72,,
+fine_grained_process,Abl_NoFeedback_LightGBM,calibrated,dual,0.95,0.95,16,7805,35.77,95.77,26.12,0.74,0.97,0,1,4754,4812,30,88,2792,22.78,,
+fine_grained_process,Abl_NoAction_LightGBM,calibrated,dual,0.95,0.95,16,7805,35.34,95.43,25.93,0.74,1.0,0,1,4754,4812,34,92,2758,22.7,,
+fine_grained_process,Abl_NoThought_LightGBM,calibrated,dual,0.95,0.95,16,7805,34.85,95.07,26.02,0.77,1.13,0,1,4754,4814,37,97,2720,22.49,,
+fine_grained_process,Abl_ProcessOnly_LightGBM,calibrated,dual,0.95,0.95,16,7805,23.84,94.14,17.93,0.55,0.7,0,1,4754,4797,33,76,1861,14.95,,
+component_with_model_id,I_LightGBM_Dense_AF,calibrated,dual,0.95,0.95,16,7805,30.583,94.889,23.3172,0.615,0.9992,0,1,4754,4802,37,85,2387,,1045.0,1220.0
+feature_groups,Abl_NoGoldAnswer_LightGBM,calibrated,dual,0.95,0.95,16,7805,32.3639,94.6952,24.1975,0.8712,1.0255,0,1,4754,4822,33,101,2526,,999.0,1393.0
+feature_groups,Abl_NoTaskPromptTfidf_LightGBM,calibrated,dual,0.95,0.95,16,7805,35.1826,95.3751,26.1247,0.6278,0.936,0,1,4754,4803,39,88,2746,,1100.0,1519.0
+feature_groups,Abl_NoTaskSignal_LightGBM,calibrated,dual,0.95,0.95,16,7805,35.3107,94.9202,26.6259,0.6406,0.923,0,1,4754,4804,45,95,2756,,1106.0,1510.0
+feature_groups,Abl_NoTaskSignal_NoGoldAnswer_LightGBM,calibrated,dual,0.95,0.95,16,7805,23.9974,94.1805,18.1129,0.5509,0.6792,0,1,4754,4797,33,76,1873,,652.0,1112.0
+feature_groups,I_LightGBM_Dense_AF,calibrated,dual,0.95,0.95,16,7805,34.952,94.978,26.0977,0.7816,1.1656,0,1,4754,4815,38,99,2728,,1087.0,1504.0
+feature_groups,J_LightGBM_Dense_AF_Thought,calibrated,dual,0.95,0.95,16,7805,34.9648,95.6394,26.039,0.6791,0.9613,0,1,4754,4807,33,86,2729,,1106.0,1504.0

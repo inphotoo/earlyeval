@@ -1,0 +1,189 @@
+project: SweBench_Organized_Package_final3
+default_strategy: current_safe_stop
+
+layout:
+  core: "final3/core"
+  checks: "final3/checks"
+  experiment_sets: "final3/experiments"
+  paper_package: "paper"
+  shared_data: "../data"
+
+experiments:
+  preflight:
+    status: main
+    cost: low
+    group: checks
+    command: "python -m final3.cli check preflight --experiment all"
+    outputs:
+      - "paper/checks/preflight/preflight_report.md"
+      - "paper/checks/preflight/preflight_checks.csv"
+    notes: "Run this before any paper or training job."
+
+  current_safe_stop_apply:
+    status: main
+    cost: low
+    group: swebench_safe_stop
+    command: "python -m final3.cli pipeline current-safe-stop --mode main --predictions <predictions>"
+    data:
+      - "../data/prefix_predict_model_holdout_answer/model_holdout_answer_shared/prefix_table_filtered.parquet"
+    outputs:
+      - "outputs/current_safe_stop_main"
+    notes: "Applies the locked validation-selected policy; no heavy training."
+
+  current_safe_stop_retrain:
+    status: main
+    cost: high
+    group: swebench_safe_stop
+    command: "python -m final3.cli train dual-head --execute"
+    data:
+      - "../data/prefix_predict_model_holdout_answer/model_holdout_answer_shared/prefix_table_filtered.parquet"
+    outputs:
+      - "final3/vendor/prefix_predict_model_holdout_answer/runs/model_holdout_answer_calibrated_full/reports/final3_current_safe_stop_dual_head"
+    notes: "Uses the vendored final3 trainer copy; keep as an explicit heavy task."
+
+  paper_tables:
+    status: main
+    cost: low
+    group: paper
+    command: "python -m final3.cli report paper-tables"
+    data:
+      - "configs/rq_final.yaml"
+      - "paper/experiments/rq_final_lightgbm_17"
+    outputs:
+      - "paper/icse_submission_draft/data/table_*.csv"
+    notes: "Refreshes current ICSE draft tables from current final3 experiment artifacts."
+
+  paper_materialize_inputs:
+    status: main
+    cost: low_by_default
+    group: paper
+    command: "python -m final3.cli experiment materialize-paper --mode link"
+    outputs:
+      - "paper/data/input_manifest.csv"
+    notes: "Creates a manifest for current ICSE paper data and links current rq_final dataset sources."
+
+  rq_final_smoke:
+    status: main
+    cost: low
+    group: final_rq
+    command: "python -m final3.cli experiment rq-final --stage smoke --config configs/rq_final.yaml"
+    data:
+      - "../data/prefix_predict_model_holdout_answer/model_holdout_answer_shared/prefix_table_filtered.parquet"
+      - "../data/other_bench_prefix_tables/toolathlon/holdout15_p99_v1_audited_20260512/prefix_table_toolathlon.parquet"
+      - "../data/other_bench_prefix_tables/terminalbench/holdout15_p99_v3_audited_20260512/prefix_table_terminalbench.parquet"
+    outputs:
+      - "paper/experiments/rq_final_smoke"
+    notes: "No training. Audits prefix parquet files and writes leave-one-test-model split manifests."
+
+  rq_final_main_lightgbm:
+    status: planned_heavy
+    cost: high
+    group: final_rq
+    command: "python -m final3.cli experiment rq-final --stage make-splits && <future serial LightGBM fold runner>"
+    data:
+      - "configs/rq_final.yaml"
+      - "paper/experiments/rq_final_<run_id>/splits/split_index.csv"
+    outputs:
+      - "paper/experiments/rq_final_<run_id>/predictions"
+      - "paper/experiments/rq_final_<run_id>/metrics"
+    notes: "Future heavy stage: serial leave-one-test-model main LightGBM runs."
+
+  rq_final_sweverify_ablation:
+    status: heavy
+    cost: high
+    group: final_rq
+    command: "bash scripts/run_rq_final_08_ablation_execute.sh"
+    data:
+      - "configs/rq_final.yaml"
+      - "paper/experiments/rq_final_<run_id>/splits/sweverify"
+    outputs:
+      - "paper/experiments/rq_final_<run_id>/ablations/sweverify/<run_subdir>"
+    notes: "Ablations are intentionally restricted to SWEVerify and keep raw prediction parquets per fold."
+
+  rq_final_sweverify_ablation_balanced4:
+    status: ready
+    cost: medium
+    group: final_rq
+    command: "bash scripts/run_rq_final_08_ablation_balanced4.sh"
+    data:
+      - "configs/rq_final.yaml"
+      - "paper/experiments/rq_final_<run_id>/splits/sweverify"
+    outputs:
+      - "paper/experiments/rq_final_<run_id>/ablations/sweverify/sweverify_ablation_balanced4"
+    notes: "Paper-facing quick ablation slice over four representative SWEVerify held-out models; same raw prediction parquet retention as the full ablation."
+
+  rq_final_latency:
+    status: planned
+    cost: medium
+    group: final_rq
+    command: "<future predictor-method latency runner>"
+    data:
+      - "configs/rq_final.yaml"
+      - "paper/experiments/rq_final_<run_id>/splits/sweverify"
+    outputs:
+      - "paper/experiments/rq_final_<run_id>/latency"
+    notes: "Latency compares predictor methods on SWEVerify, not Toolathlon/TerminalBench."
+
+  terminalbench_lightgbm:
+    status: optional
+    cost: medium
+    group: other_benchmarks
+    source: "final3/benchmarks/normalize.py + migrated adapter spec"
+    data:
+      - "../data/terminalbench-trajectories"
+    outputs:
+      - "paper/results/terminalbench"
+    default_enabled: false
+
+  toolathlon_lightgbm:
+    status: optional
+    cost: medium
+    group: other_benchmarks
+    source: "final3/benchmarks/normalize.py + migrated adapter spec"
+    data:
+      - "../data/Toolathlon-Trajectories"
+    outputs:
+      - "paper/results/toolathlon"
+    default_enabled: false
+
+  direct_mlp:
+    status: completed_current_full16_included
+    cost: high
+    group: architecture_baselines
+    command: "bash scripts/run_rq_final_09_direct_mlp_full16.sh"
+    source: "final3/vendor/architecture_baselines/train_direct_dual_head_mlp.py"
+    outputs:
+      - "paper/experiments/rq_final_lightgbm_17/model_compare/direct_mlp_full16_ij"
+    default_enabled: false
+
+  bert_codebert:
+    status: optional_heavy_excluded_current_scope_partial_8_of_16
+    cost: high
+    group: architecture_baselines
+    command: "bash scripts/run_rq_final_09_bert_finetune_full16.sh"
+    source: "final3/vendor/architecture_baselines/bert_baselines"
+    outputs:
+      - "paper/experiments/rq_final_lightgbm_17/model_compare/bert_codebert_finetune_full16_e3"
+    default_enabled: false
+
+  qwen_lora:
+    status: completed_current_full16_lomo_logit_sweep_included
+    cost: high
+    group: architecture_baselines
+    source: "final3/vendor/architecture_baselines/qwen_finetune_baselines"
+    outputs:
+      - "paper/experiments/rq_final_lightgbm_17/model_compare/llm_logit_lomo_full16"
+      - "paper/icse_submission_draft/data/table_llm_logit_lomo_threshold_summary_full16.csv"
+      - "paper/icse_submission_draft/data/table_llm_logit_lomo_representative_full16.csv"
+    default_enabled: false
+
+  llm_logit_judge:
+    status: completed_current_full16_qwen_lora_lomo_included
+    cost: high
+    group: architecture_baselines
+    command: "bash scripts/run_rq_final_09_llm_logit_full16.sh"
+    source: "final3/vendor/architecture_baselines/llm_logit_baselines"
+    outputs:
+      - "paper/experiments/rq_final_lightgbm_17/model_compare/llm_logit_lomo_full16"
+      - "paper/icse_submission_draft/data/table_architecture_compare_full16.csv"
+    default_enabled: false
