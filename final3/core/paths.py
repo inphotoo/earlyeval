@@ -68,8 +68,11 @@ def load_paths(config: str | Path | None = None) -> ProjectPaths:
     def p(key: str, default: str) -> Path:
         return _resolve(payload.get(key, default))
 
-    def lp(key: str, default: str) -> Path:
-        return _resolve(legacy.get(key, default))
+    def lp(key: str, default: str | None) -> Path:
+        value = legacy.get(key, default)
+        if value is None:
+            return Path()
+        return _resolve(value)
 
     def vp(key: str, default: str) -> Path:
         return _resolve(vendor.get(key, default))
@@ -89,11 +92,11 @@ def load_paths(config: str | Path | None = None) -> ProjectPaths:
         python_executable=(
             _resolve(runtime["python_executable"]) if runtime.get("python_executable") else None
         ),
-        legacy_final_root=lp("final_root", "../SweBench_Organized_Package_final"),
-        legacy_final2_root=lp("final2_root", "../SweBench_Organized_Package_final2"),
+        legacy_final_root=lp("final_root", None),
+        legacy_final2_root=lp("final2_root", None),
         answer_module_root=lp(
             "answer_module_root",
-            "../SweBench_Organized_Package_final/modules/prefix_predict_model_holdout_answer",
+            None,
         ),
         vendor_answer_module_root=vp(
             "answer_module_root",
@@ -121,8 +124,7 @@ def load_paths(config: str | Path | None = None) -> ProjectPaths:
         ),
         feature_engineer_with_model=sp(
             "feature_engineer_with_model",
-            "../SweBench_Organized_Package_final/modules/prefix_predict_model_holdout_answer/runs/"
-            "model_holdout_answer_calibrated_full/models/feature_engineer_with_model.pkl",
+            "../artifacts/model_holdout_answer_calibrated_full/models/feature_engineer_with_model.pkl",
         ),
     )
 

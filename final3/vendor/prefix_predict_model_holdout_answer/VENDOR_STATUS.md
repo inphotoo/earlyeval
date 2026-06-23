@@ -2,17 +2,16 @@
 
 Last audited: 2026-06-04.
 
-This directory is the active final3-owned copy of the answer-aware training and feature code. The final3 CLI now resolves the dual-head LightGBM trainer here by default:
+This directory is the active final3-owned copy of the answer-aware training,
+feature, evaluator, and posthoc source code. The final3 CLI resolves the
+dual-head LightGBM trainer here by default:
 
 ```text
 final3/vendor/prefix_predict_model_holdout_answer/safe_stop_dual_head_retrain.py
 ```
 
-The legacy source directory remains available for old-run reproduction and artifact lineage:
-
-```text
-../SweBench_Organized_Package_final/modules/prefix_predict_model_holdout_answer/
-```
+Older package paths are artifact lineage only. Runtime code in the GitHub
+release should not import modules from an external old package.
 
 ## What Belongs Here
 
@@ -27,8 +26,10 @@ The legacy source directory remains available for old-run reproduction and artif
 - Model binaries, pickles, or run directories.
 - Logs, reports, and cache directories.
 
-Large artifacts stay in the shared data or legacy run roots and are tracked through `configs/paths.yaml` and `manifests/artifact_manifest.yaml`.
+Large artifacts stay outside Git in shared data/artifact directories and are
+tracked through path configuration or external artifact manifests.
 
 ## Edit Rule
 
-For future paper or training changes, edit this vendored final3 copy first. Treat the old source directory as read-only lineage unless you intentionally need to reproduce an old command exactly.
+For future paper or training changes, edit this vendored final3 copy. Treat any
+old source directory as read-only lineage, not as a runtime dependency.

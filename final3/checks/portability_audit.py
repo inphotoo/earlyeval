@@ -13,10 +13,9 @@ from final3.core.io import ensure_dir, write_json, write_table
 from final3.core.paths import load_paths, package_root
 
 
-EXTERNAL_CODE_PATTERNS = (
-    "SweBench_Organized_Package_final/modules/prefix_predict_model_holdout_answer",
-    "SweBench_Organized_Package_final2/experiments",
-)
+# Runtime source code is expected to live inside final3/ and final3/vendor/.
+# Historical artifact paths are intentionally not treated as code dependencies.
+EXTERNAL_CODE_PATTERNS: tuple[str, ...] = ()
 
 TEXT_SUFFIXES = {
     ".py",

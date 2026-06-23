@@ -1,19 +1,25 @@
 # legacy
 
-`legacy/` 只放旧入口迁移帮助和薄 wrapper。这里的目标是帮助从 final2 或旧 answer-aware 脚本迁移到 final3，不是继续发展新功能。
+`legacy/` is only a compatibility layer for old command names. It is not a
+separate source-code dependency.
 
-## 当前文件
+The actual answer-aware training, feature, policy, and posthoc scripts used by
+the final experiments are vendored inside:
 
-- `wrappers.py`: 维护旧脚本名到 final3 命令的映射。
+```text
+final3/vendor/prefix_predict_model_holdout_answer/
+```
 
-## 常用命令
+## Files
+
+- `wrappers.py`: maps historical script names to the corresponding final3 CLI
+  entry points.
+
+## Example
 
 ```bash
 python -m final3.cli legacy explain safe_stop_dual_head_retrain.py
 ```
 
-如果某个旧脚本没有映射，命令会列出当前已知入口。
+If an old entry point is not mapped, the command prints the known mappings.
 
-## 新迁移项怎么加
-
-只在确实需要保留兼容说明时新增映射。不要把旧脚本完整复制进这里；优先把稳定逻辑迁移到 `core/`、`policies/`、`models/` 或 `reports/`。

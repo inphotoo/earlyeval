@@ -2,8 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-PACKAGE_ROOT="${REPO_ROOT}/SweBench_Organized_Package_final3"
+PACKAGE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${PACKAGE_ROOT}/.." && pwd)"
 source "${SCRIPT_DIR}/_rq_final_full16_models.sh"
 
 PYTHON_BIN="${PYTHON_BIN:-/home/ugproj/anaconda3/envs/swebench/bin/python}"
@@ -60,7 +60,7 @@ run_one_fold() {
     export MKL_NUM_THREADS="${THREADS}"
     export NUMEXPR_NUM_THREADS="${THREADS}"
     export NUMEXPR_MAX_THREADS="${THREADS}"
-    "${PYTHON_BIN}" SweBench_Organized_Package_final3/final3/vendor/architecture_baselines/train_direct_dual_head_mlp.py \
+    "${PYTHON_BIN}" "${PACKAGE_ROOT}/final3/vendor/architecture_baselines/train_direct_dual_head_mlp.py" \
       --run-name model_holdout_answer_calibrated_full \
       --verified-jsonl "${VERIFIED_JSONL}" \
       --holdout-models "${model_id}" \

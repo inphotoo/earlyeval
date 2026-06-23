@@ -18,6 +18,13 @@ def final2_root() -> Path:
 
 
 def legacy_answer_module_root() -> Path:
+    """Historical artifact location only.
+
+    Runtime code should use `answer_module_root()`, which resolves to the
+    vendored final3-owned source tree. This helper remains for audit reports
+    that need to mention where old artifacts came from.
+    """
+
     return load_paths().answer_module_root
 
 
@@ -28,15 +35,12 @@ def vendor_answer_module_root() -> Path:
 def answer_module_root() -> Path:
     """Return the final3-owned answer-aware module root.
 
-    The vendored copy is the editable source for future final3 work. The
-    legacy package remains available through `legacy_answer_module_root()` for
-    old-run reproduction and artifact lineage.
+    The GitHub release is code-self-contained: the active answer-aware trainer,
+    feature code, and posthoc scripts live under `final3/vendor/`. Do not fall
+    back to an external legacy package at runtime.
     """
 
-    vendor = vendor_answer_module_root()
-    if vendor.exists():
-        return vendor
-    return legacy_answer_module_root()
+    return vendor_answer_module_root()
 
 
 def shared_answer_data_root() -> Path:

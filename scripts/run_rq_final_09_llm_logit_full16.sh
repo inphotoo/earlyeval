@@ -2,8 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-PACKAGE_ROOT="${REPO_ROOT}/SweBench_Organized_Package_final3"
+PACKAGE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${PACKAGE_ROOT}/.." && pwd)"
 source "${SCRIPT_DIR}/_rq_final_full16_models.sh"
 
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
@@ -48,7 +48,7 @@ for model_id in ${TEST_MODELS}; do
   echo "[llm-logit] start ${model_id}; log=${log_path}"
   (
     cd "${REPO_ROOT}"
-    "${PYTHON_BIN}" SweBench_Organized_Package_final3/final3/vendor/architecture_baselines/bert_baselines/build_bert_embedding_cache.py \
+    "${PYTHON_BIN}" "${PACKAGE_ROOT}/final3/vendor/architecture_baselines/bert_baselines/build_bert_embedding_cache.py" \
       --verified-jsonl "${VERIFIED_JSONL}" \
       --holdout-models "${model_id}" \
       --exclude-train-models ${EXCLUDED_TRAIN_MODELS} \
@@ -62,7 +62,7 @@ for model_id in ${TEST_MODELS}; do
       "${DOWNLOAD_ARGS[@]}" \
       "${OVERWRITE_ARGS[@]}"
 
-    "${PYTHON_BIN}" SweBench_Organized_Package_final3/final3/vendor/architecture_baselines/llm_logit_baselines/run_local_llm_logits.py \
+    "${PYTHON_BIN}" "${PACKAGE_ROOT}/final3/vendor/architecture_baselines/llm_logit_baselines/run_local_llm_logits.py" \
       --cache-dir "${cache_dir}" \
       --output-dir "${fold_dir}" \
       --model-name "${MODEL_NAME}" \

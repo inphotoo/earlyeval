@@ -10,6 +10,9 @@ This GitHub-ready bundle was checked against the active training/testing tree at
 
 - `final3/` matches the active source tree byte-for-byte, excluding only
   `__pycache__/` and `*.pyc`.
+- `final3/vendor/prefix_predict_model_holdout_answer/` includes the active
+  answer-aware trainer, feature engineer, evaluator, and historical top-level
+  posthoc source scripts. Large `runs/` artifacts are intentionally excluded.
 - `scripts/` matches the active source tree byte-for-byte.
 - `configs/` matches the active source tree except `configs/paths.yaml`, which
   is intentionally omitted because it is local-machine-specific.
@@ -26,11 +29,11 @@ This GitHub-ready bundle was checked against the active training/testing tree at
 
 - Large prefix parquet tables.
 - Fold prediction parquet files.
-- Trained model artifacts and embedding/tokenizer caches.
+- Trained feature-engineer pickles, model artifacts, and embedding/tokenizer
+  caches.
 - Local-only `configs/paths.yaml`.
 - Python bytecode caches.
 - Large per-trajectory supporting files.
 
 Run `bash VERIFY_RELEASE_LOCAL.sh /path/to/SweBench_Organized_Package_final3`
 to repeat the local consistency audit before pushing to GitHub.
-

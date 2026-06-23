@@ -10,10 +10,12 @@ output_root: "outputs"
 runtime:
   python_executable: null
 
+# Historical artifact roots are optional. Runtime code uses the vendored source
+# under final3/vendor and does not require these old package directories.
 legacy:
-  final_root: "../SweBench_Organized_Package_final"
-  final2_root: "../SweBench_Organized_Package_final2"
-  answer_module_root: "../SweBench_Organized_Package_final/modules/prefix_predict_model_holdout_answer"
+  final_root: null
+  final2_root: null
+  answer_module_root: null
 
 vendor:
   answer_module_root: "final3/vendor/prefix_predict_model_holdout_answer"
@@ -24,4 +26,4 @@ shared_data:
   prefix_table_filtered: "../data/prefix_predict_model_holdout_answer/model_holdout_answer_shared/prefix_table_filtered.parquet"
   prefix_table_answer_enriched: "../data/prefix_predict_model_holdout_answer/model_holdout_answer_shared/prefix_table_answer_enriched.parquet"
   step_table: "../data/prefix_predict_model_holdout_answer/model_holdout_answer_shared/step_table.parquet"
-  feature_engineer_with_model: "../SweBench_Organized_Package_final/modules/prefix_predict_model_holdout_answer/runs/model_holdout_answer_calibrated_full/models/feature_engineer_with_model.pkl"
+  feature_engineer_with_model: "../artifacts/model_holdout_answer_calibrated_full/models/feature_engineer_with_model.pkl"

@@ -21,12 +21,14 @@ import numpy as np
 import pandas as pd
 
 
-ROOT = Path(
-    os.environ.get(
-        "SWEBENCH_PACKAGE_ROOT",
-        "/data3/djs/SweBench/SweBench_Organized_Package_final3",
-    )
-).resolve()
+def _default_package_root() -> Path:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "configs" / "rq_final.yaml").exists():
+            return parent
+    return Path.cwd()
+
+
+ROOT = Path(os.environ.get("SWEBENCH_PACKAGE_ROOT", str(_default_package_root()))).resolve()
 PAPER_DATA = Path(
     os.environ.get(
         "EARLYEVAL_PAPER_DATA",
@@ -1359,8 +1361,8 @@ RQ3 locked 0.95 rows:
 ## Regenerate
 
 ```bash
-cd /data3/djs/SweBench/SweBench_Organized_Package_final3
-/home/ugproj/anaconda3/envs/swebench/bin/python paper/icse_submission_draft/rq_tables_reorg_20260623/build_rq_tables_bundle.py
+cd "$SWEBENCH_PACKAGE_ROOT"
+python paper/icse_submission_draft/rq_tables_reorg_20260623/build_rq_tables_bundle.py
 ```
 """
     # Keep README.md as the hand-maintained usage guide. The generated snapshot

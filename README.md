@@ -1,13 +1,22 @@
 # EarlyEval Code Release
 
-This is the code-only GitHub-ready bundle for the EarlyEval/SWE-bench Verified,
-TerminalBench, and Toolathlon experiments. It intentionally excludes large data,
-prediction parquet files, tokenizer caches, and per-trajectory supporting CSVs.
+This is the code-complete GitHub-ready bundle for the EarlyEval/SWE-bench
+Verified, TerminalBench, and Toolathlon experiments. It includes the active
+`final3` source tree plus the vendored answer-aware training, feature,
+baseline, and posthoc scripts used by the experiments. It intentionally
+excludes large data, trained model artifacts, prediction parquet files,
+tokenizer caches, and per-trajectory supporting CSVs.
 
 ## What Is Included
 
 - `final3/`: Python package for feature construction, LightGBM training,
   policy replay, ablations, robustness evaluation, and reporting helpers.
+- `final3/vendor/prefix_predict_model_holdout_answer/`: vendored source code
+  for the answer-aware trainer, feature engineer, policy evaluator, and
+  historical posthoc analysis scripts. Runtime code uses this copy rather than
+  importing modules from an external old package.
+- `final3/vendor/architecture_baselines/`: MLP, BERT/CodeBERT, local LLM-logit,
+  and Qwen baseline code.
 - `scripts/`: shell entrypoints used to run the final experiments.
 - `configs/`: experiment configuration. `paths.yaml` is intentionally omitted;
   start from `configs/paths.example.yaml` for a new machine.
@@ -19,12 +28,13 @@ prediction parquet files, tokenizer caches, and per-trajectory supporting CSVs.
 ## What Is Not Included
 
 - Raw or processed prefix parquet tables.
-- Trained model/fold prediction parquet files.
+- Trained feature-engineer pickles, model artifacts, and fold prediction
+  parquet files.
 - Embedding/tokenizer/model caches.
 - The 63MB `supporting/locked095_decisions_all_benchmarks.csv` style files.
 
-Those should be published separately as artifacts if reviewers need exact
-post-hoc regeneration.
+Those are artifacts, not source code. They should be published separately if
+reviewers need exact post-hoc regeneration.
 
 ## Main Entry Points
 
@@ -97,4 +107,3 @@ requires a model-specific input/output price table.
 - Main token savings use a uniform chars/4 estimate across all three
   benchmarks: input/context-call tokens for skipped future calls, and generated
   output tokens for skipped model text.
-
