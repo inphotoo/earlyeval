@@ -1321,6 +1321,28 @@ def _attach_token_summary(threshold_agg: pd.DataFrame, token_summary: pd.DataFra
     return threshold_agg.merge(token_summary[token_cols], on=["dataset_key", "threshold", "policy_mode"], how="left")
 
 
+def _attach_pass1_shift_summary(
+    threshold_agg: pd.DataFrame,
+    threshold_per_agent: pd.DataFrame,
+) -> pd.DataFrame:
+    group_cols = ["benchmark", "dataset_key", "preset", "threshold", "policy_mode"]
+    per_agent = threshold_per_agent.copy()
+    per_agent["resolve_change_pp"] = pd.to_numeric(
+        per_agent["resolve_change_pp"], errors="coerce"
+    )
+    shift = (
+        per_agent.groupby(group_cols, as_index=False, dropna=False)
+        .agg(
+            mean_delta_p1_pp=("resolve_change_pp", "mean"),
+            mean_abs_delta_p1_pp=("resolve_change_pp", lambda s: float(s.abs().mean())),
+            max_abs_delta_p1_pp=("resolve_change_pp", lambda s: float(s.abs().max())),
+        )
+    )
+    out = threshold_agg.merge(shift, on=group_cols, how="left")
+    out["signed_aggregate_delta_p1_pp"] = out["resolve_change_pp"]
+    return out
+
+
 def _build_threshold_compact(threshold_agg: pd.DataFrame) -> pd.DataFrame:
     cols = [
         "benchmark",
@@ -1336,6 +1358,10 @@ def _build_threshold_compact(threshold_agg: pd.DataFrame) -> pd.DataFrame:
         "output_token_save_pct_est",
         "external_input_token_save_pct_est",
         "resolve_change_pp",
+        "signed_aggregate_delta_p1_pp",
+        "mean_abs_delta_p1_pp",
+        "mean_delta_p1_pp",
+        "max_abs_delta_p1_pp",
     ]
     agent_counts = {b.dataset_key: b.n_test_agents for b in BENCHES}
     bench_order = {b.benchmark: idx for idx, b in enumerate(BENCHES)}
@@ -1344,6 +1370,56 @@ def _build_threshold_compact(threshold_agg: pd.DataFrame) -> pd.DataFrame:
     out = out[cols].replace([np.inf, -np.inf], np.nan)
     out["_bench_order"] = out["benchmark"].map(bench_order)
     return out.sort_values(["_bench_order", "threshold"]).drop(columns="_bench_order")
+
+
+def _build_threshold_pass1_shift(
+    threshold_agg: pd.DataFrame,
+    threshold_per_agent: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    summary_cols = [
+        "benchmark",
+        "dataset_key",
+        "threshold",
+        "policy_mode",
+        "original_resolve_rate_pct",
+        "adjusted_resolve_rate_pct",
+        "resolve_change_pp",
+        "signed_aggregate_delta_p1_pp",
+        "mean_abs_delta_p1_pp",
+        "mean_delta_p1_pp",
+        "max_abs_delta_p1_pp",
+        "coverage_pct",
+        "decision_accuracy_pct",
+        "global_step_save_pct",
+        "input_token_save_pct_est",
+        "output_token_save_pct_est",
+    ]
+    bench_order = {b.benchmark: idx for idx, b in enumerate(BENCHES)}
+    summary = threshold_agg[[c for c in summary_cols if c in threshold_agg.columns]].copy()
+    summary["_bench_order"] = summary["benchmark"].map(bench_order)
+    summary = summary.sort_values(["_bench_order", "threshold"]).drop(columns="_bench_order")
+
+    detail_cols = [
+        "benchmark",
+        "dataset_key",
+        "threshold",
+        "policy_mode",
+        "agent",
+        "agent_display",
+        "original_resolve_rate_pct",
+        "adjusted_resolve_rate_pct",
+        "resolve_change_pp",
+        "original_total",
+        "coverage_pct",
+        "decision_accuracy_pct",
+        "global_step_save_pct",
+    ]
+    detail = threshold_per_agent[[c for c in detail_cols if c in threshold_per_agent.columns]].copy()
+    detail["_bench_order"] = detail["benchmark"].map(bench_order)
+    detail = detail.sort_values(["_bench_order", "threshold", "agent_display"]).drop(
+        columns="_bench_order"
+    )
+    return summary, detail
 
 
 def _prefix_table_counts(config: BenchConfig, decisions_all: pd.DataFrame) -> dict[str, Any]:
@@ -1685,6 +1761,7 @@ def _format_rank_delta(x: Any) -> str:
 
 def _write_latex(
     rq1: pd.DataFrame,
+    threshold_compact: pd.DataFrame,
     rq2_top10: pd.DataFrame,
     rq2_summary: pd.DataFrame,
     rq3: pd.DataFrame,
@@ -1719,6 +1796,35 @@ def _write_latex(
             f"{fmt_pct(row.global_step_save_pct)} & {fmt_pct(row.input_token_save_pct_est)} & "
             f"{fmt_pct(row.output_token_save_pct_est)} \\\\"
         )
+    lines += [r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""]
+
+    lines += [
+        r"\begin{table*}[t]",
+        r"\centering",
+        r"\caption{RQ1 threshold sweep: overall decision quality, savings, and Pass@1 shifts across fixed symmetric calibrated thresholds. $\Delta$P@1 is the signed aggregate resolve-rate change (EarlyEval minus full run, pp); mean $|\Delta|$P@1 is the mean absolute per-agent resolve-rate change.}",
+        r"\label{tab:rq1_threshold_sweep}",
+        r"\small",
+        r"\setlength{\tabcolsep}{4.5pt}",
+        r"\begin{tabular}{l c c c c c c c}",
+        r"\toprule",
+        r"Benchmark & Thr & Acc & \%Steps & \%In & \%Out & $\Delta$P@1 & mean $|\Delta|$P@1 \\",
+        r"\midrule",
+    ]
+    for benchmark in order:
+        sub = threshold_compact[threshold_compact["benchmark"].eq(benchmark)].copy()
+        if sub.empty:
+            continue
+        first = True
+        for row in sub.sort_values("threshold").itertuples(index=False):
+            bench_cell = benchmark if first else ""
+            first = False
+            lines.append(
+                f"{bench_cell} & {float(row.threshold):.2f} & "
+                f"{fmt_pct(row.decision_accuracy_pct)} & {fmt_pct(row.global_step_save_pct)} & "
+                f"{fmt_pct(row.input_token_save_pct_est)} & {fmt_pct(row.output_token_save_pct_est)} & "
+                f"${_format_signed(row.signed_aggregate_delta_p1_pp)}$ & "
+                f"{fmt_pct(row.mean_abs_delta_p1_pp)} \\\\"
+            )
     lines += [r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""]
 
     bench_order = ["SWE-bench Verified", "TerminalBench", "Toolathlon"]
@@ -1889,7 +1995,12 @@ completed held-out prediction parquet files; no models are trained here.
 - `threshold_sweep_all_benchmarks.csv`: full fixed-threshold tradeoff for all
   three benchmarks.
 - `rq1_threshold_sweep_compact.csv`: paper-friendly threshold sweep with the
-  main quality/saving columns.
+  main quality/saving columns, including signed aggregate Delta P@1 and
+  mean absolute per-agent Delta P@1 across every threshold.
+- `rq1_threshold_pass1_shift_summary.csv`: threshold-level Pass@1 shift summary
+  for all three benchmarks.
+- `supporting/rq1_threshold_pass1_shift_by_agent.csv`: per-agent Pass@1 shift
+  detail used to compute the threshold-level mean absolute Delta P@1.
 - `rq2_top10.csv`: top-10 agents per benchmark by full-run Pass@1, with
   delta P@1 and rank change.
 - `rq2_per_agent_all.csv`: all per-agent rows for SWE/TB/Toolathlon.
@@ -1908,7 +2019,8 @@ completed held-out prediction parquet files; no models are trained here.
 - `trajectory_prefix_counts.csv`: collected trajectory and decomposed prefix
   counts for SWE-bench Verified, TerminalBench, and Toolathlon.
 - `model_price_template.csv`: price table to fill for Saved$.
-- `tables_latex_draft.tex`: LaTeX draft for the RQ1/RQ2/RQ3 tables.
+- `tables_latex_draft.tex`: LaTeX draft for the RQ1/RQ2/RQ3 tables, including
+  the threshold-level Pass@1 shift table.
 - `supporting/tokenizer_manifest_all_benchmarks.csv`: exact tokenizer/proxy
   mapping used for each model id.
 - `supporting/token_count_method_summary_all_benchmarks.csv`: count method
@@ -1927,7 +2039,7 @@ RQ1 rows:
 Threshold sweep rows:
 
 ```text
-{_round_df(threshold_agg[['benchmark','threshold','coverage_pct','decision_accuracy_pct','global_step_save_pct','input_token_save_pct_est','output_token_save_pct_est','resolve_change_pp']], 2).to_string(index=False)}
+{_round_df(threshold_agg[['benchmark','threshold','coverage_pct','decision_accuracy_pct','global_step_save_pct','input_token_save_pct_est','output_token_save_pct_est','resolve_change_pp','mean_abs_delta_p1_pp']], 2).to_string(index=False)}
 ```
 
 RQ2 summary:
@@ -1969,7 +2081,12 @@ def main() -> None:
         decisions_095
     )
     threshold_agg = _attach_token_summary(threshold_agg, token_summary)
+    threshold_agg = _attach_pass1_shift_summary(threshold_agg, threshold_per_agent)
     threshold_compact = _build_threshold_compact(threshold_agg)
+    threshold_pass1_summary, threshold_pass1_by_agent = _build_threshold_pass1_shift(
+        threshold_agg,
+        threshold_per_agent,
+    )
     trajectory_prefix_counts = _build_trajectory_prefix_counts(decisions_095)
     rq1 = _build_rq1(threshold_agg, token_summary)
     rq2_top10, rq2_per_agent_all, rq2_summary = _build_rq2(ranked_by_bench, token_agent)
@@ -1978,6 +2095,8 @@ def main() -> None:
 
     threshold_agg = _round_df(threshold_agg)
     threshold_compact = _round_df(threshold_compact)
+    threshold_pass1_summary = _round_df(threshold_pass1_summary)
+    threshold_pass1_by_agent = _round_df(threshold_pass1_by_agent)
     threshold_per_agent = _round_df(threshold_per_agent)
     decisions_095 = _round_df(decisions_095)
     token_summary = _round_df(token_summary)
@@ -1994,6 +2113,11 @@ def main() -> None:
 
     threshold_agg.to_csv(OUT / "threshold_sweep_all_benchmarks.csv", index=False)
     threshold_compact.to_csv(OUT / "rq1_threshold_sweep_compact.csv", index=False)
+    threshold_pass1_summary.to_csv(OUT / "rq1_threshold_pass1_shift_summary.csv", index=False)
+    threshold_pass1_by_agent.to_csv(
+        SUPPORTING / "rq1_threshold_pass1_shift_by_agent.csv",
+        index=False,
+    )
     threshold_per_agent.to_csv(SUPPORTING / "threshold_sweep_per_agent_all_benchmarks.csv", index=False)
     decisions_095.to_csv(SUPPORTING / "locked095_decisions_all_benchmarks.csv", index=False)
     token_summary.to_csv(OUT / "token_input_output_summary.csv", index=False)
@@ -2028,7 +2152,7 @@ def main() -> None:
             index=False,
         )
 
-    _write_latex(rq1, rq2_top10, rq2_summary, rq3)
+    _write_latex(rq1, threshold_compact, rq2_top10, rq2_summary, rq3)
     _write_readme(rq1, threshold_agg, rq2_summary, rq3, trajectory_prefix_counts)
 
     manifest_rows = []

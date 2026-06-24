@@ -10,9 +10,9 @@ from final3.core.paths import package_root
 def refresh_paper_tables(*, output_dir: str | Path | None = None) -> dict[str, Any]:
     """Refresh the current ICSE draft CSV tables.
 
-    The canonical refresh logic lives next to the paper data so the table
-    lineage stays visible to paper authors. This wrapper only exposes it
-    through the final3 CLI.
+    The canonical refresh logic lives next to the paper data so table lineage
+    remains easy to inspect. This wrapper only exposes it through the final3
+    CLI.
     """
 
     data_dir = package_root() / "paper" / "icse_submission_draft" / "data"
