@@ -8,7 +8,7 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 OUTPUT_DIR="${OUTPUT_DIR:-paper/checks/freeze_paper_data_symlinks}"
 MAX_FILE_MB="${MAX_FILE_MB:-64}"
 
-"${PYTHON_BIN}" -m final3.checks.freeze_paper_data_symlinks \
+"${PYTHON_BIN}" -m earlyeval.checks.freeze_paper_data_symlinks \
   --output-dir "${OUTPUT_DIR}" \
   --max-file-mb "${MAX_FILE_MB}" \
   "$@"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build the SWE-bench Verified shared artifacts used by the final experiments:
+# Build the SWE-bench Verified shared artifacts used by the paper experiments:
 # step_table, prefix_table, prefix_table_filtered, answer-enriched prefix table,
 # and FeatureEngineer pickles. This is the from-raw-data stage that must run
 # before the LightGBM/MLP/BERT folds when those artifacts are not already
@@ -44,12 +44,12 @@ fi
 
 mkdir -p "${SHARED_DIR}" "${ARTIFACT_MODEL_DIR}"
 
-export FINAL3_VENDOR_RUNTIME_ROOT="${FINAL3_VENDOR_RUNTIME_ROOT:-${ROOT_DIR}/outputs/vendor_runtime/prefix_predict_model_holdout_answer}"
+export EARLYEVAL_VENDOR_RUNTIME_ROOT="${EARLYEVAL_VENDOR_RUNTIME_ROOT:-${ROOT_DIR}/outputs/vendor_runtime/prefix_predict_model_holdout_answer}"
 export SWE_PREFIX_SKIP_INSTANCE_DEDUP="${SWE_PREFIX_SKIP_INSTANCE_DEDUP:-1}"
 export PYTHONUNBUFFERED=1
 
 args=(
-  "${ROOT_DIR}/final3/vendor/prefix_predict_model_holdout_answer/run_all.py"
+  "${ROOT_DIR}/earlyeval/vendor/prefix_predict_model_holdout_answer/run_all.py"
   --run-name "${RUN_NAME}"
   --data-dir "${SWE_PARQUET_DIR}"
   --split-by model_holdout
@@ -68,10 +68,10 @@ if [[ "${NO_GPU_LGBM}" == "1" ]]; then
   args+=(--no-gpu-lgbm)
 fi
 
-echo "[build-swe-shared] runtime=${FINAL3_VENDOR_RUNTIME_ROOT}"
+echo "[build-swe-shared] runtime=${EARLYEVAL_VENDOR_RUNTIME_ROOT}"
 "${PYTHON_BIN}" "${args[@]}"
 
-RUN_ROOT="${ROOT_DIR}/final3/vendor/prefix_predict_model_holdout_answer/runs/${RUN_NAME}"
+RUN_ROOT="${ROOT_DIR}/earlyeval/vendor/prefix_predict_model_holdout_answer/runs/${RUN_NAME}"
 
 cp -f "${RUN_ROOT}/data/step_table.parquet" "${SHARED_DIR}/step_table.parquet"
 cp -f "${RUN_ROOT}/data/prefix_table.parquet" "${SHARED_DIR}/prefix_table.parquet"
@@ -89,7 +89,7 @@ Built by: scripts/run_earlyeval_00_build_swe_shared_artifacts.sh
 Run name: ${RUN_NAME}
 Raw SWE_PARQUET_DIR: ${SWE_PARQUET_DIR}
 Verified JSONL: ${VERIFIED_JSONL}
-Runtime root: ${FINAL3_VENDOR_RUNTIME_ROOT}
+Runtime root: ${EARLYEVAL_VENDOR_RUNTIME_ROOT}
 Shared data dir: ${SHARED_DIR}
 Artifact model dir: ${ARTIFACT_MODEL_DIR}
 EOF

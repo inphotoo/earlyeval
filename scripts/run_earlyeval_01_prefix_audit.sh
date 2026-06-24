@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PYTHON_BIN="${PYTHON_BIN:-python}"
+RUN_DIR="${RUN_DIR:-paper/experiments/earlyeval_smoke}"
+cd "$(dirname "$0")/.."
+
+"${PYTHON_BIN}" -m earlyeval.cli experiment paper-suite \
+  --stage audit-prefix \
+  --config configs/earlyeval.yaml \
+  --output-dir "${RUN_DIR}"
+

@@ -11,14 +11,12 @@ runtime:
   python_executable: null
 
 # Historical artifact roots are optional. Runtime code uses the vendored source
-# under final3/vendor and does not require these old package directories.
+# under earlyeval/vendor and does not require these old package directories.
 legacy:
-  final_root: null
-  final2_root: null
   answer_module_root: null
 
 vendor:
-  answer_module_root: "final3/vendor/prefix_predict_model_holdout_answer"
+  answer_module_root: "earlyeval/vendor/prefix_predict_model_holdout_answer"
 
 shared_data:
   answer_root: "../data/prefix_predict_model_holdout_answer/model_holdout_answer_shared"

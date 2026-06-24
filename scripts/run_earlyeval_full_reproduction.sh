@@ -31,7 +31,7 @@ export PYTHON_BIN
 export PYTHONUNBUFFERED=1
 
 echo "[repro] === 0. preflight ==="
-"${PYTHON_BIN}" -m final3.cli check preflight --experiment all || {
+"${PYTHON_BIN}" -m earlyeval.cli check preflight --experiment all || {
   echo "[repro] preflight reported missing data/artifacts. This is expected before BUILD_SWE_SHARED=1 on a fresh machine." >&2
 }
 
@@ -42,54 +42,54 @@ fi
 
 if [[ "${RUN_MAIN:-0}" == "1" ]]; then
   echo "[repro] === 2. SWE full-16 main LightGBM ==="
-  bash scripts/run_rq_final_03_main_lightgbm_execute.sh
-  bash scripts/run_rq_final_04_summarize_lightgbm_current.sh
-  bash scripts/run_rq_final_05_lightgbm_policy_sweep_valid_acc.sh
-  bash scripts/run_rq_final_12_main_latency_cost.sh
+  bash scripts/run_earlyeval_03_main_lightgbm_execute.sh
+  bash scripts/run_earlyeval_04_summarize_lightgbm_current.sh
+  bash scripts/run_earlyeval_05_lightgbm_policy_sweep_valid_acc.sh
+  bash scripts/run_earlyeval_12_main_latency_cost.sh
 else
   echo "[repro] === 2. SWE main dry-run plan ==="
-  bash scripts/run_rq_final_03_main_lightgbm_dry_run.sh
+  bash scripts/run_earlyeval_03_main_lightgbm_dry_run.sh
 fi
 
 if [[ "${RUN_ROBUSTNESS:-0}" == "1" ]]; then
   echo "[repro] === 3. TerminalBench/Toolathlon robustness ==="
-  bash scripts/run_rich_loo_hard_memory_limited.sh
+  bash scripts/run_earlyeval_robustness_loo_answer_features_memory_limited.sh
 fi
 
 if [[ "${RUN_ABLATIONS:-0}" == "1" ]]; then
   echo "[repro] === 4. SWE full-16 ablations ==="
   RUN_SUBDIR=sweverify_ablation_feature_groups_full16 \
   PROFILES=feature_groups \
-  TEST_MODELS="$(bash -lc 'source scripts/_rq_final_full16_models.sh; rq_final_full16_models_string')" \
-  bash scripts/run_rq_final_08_ablation_execute.sh
+  TEST_MODELS="$(bash -lc 'source scripts/_earlyeval_full16_models.sh; earlyeval_full16_models_string')" \
+  bash scripts/run_earlyeval_08_ablation_execute.sh
 
   RUN_SUBDIR=sweverify_ablation_feature_groups_full16 \
   PROFILES=component_with_model_id \
-  TEST_MODELS="$(bash -lc 'source scripts/_rq_final_full16_models.sh; rq_final_full16_models_string')" \
-  bash scripts/run_rq_final_08_ablation_execute.sh
+  TEST_MODELS="$(bash -lc 'source scripts/_earlyeval_full16_models.sh; earlyeval_full16_models_string')" \
+  bash scripts/run_earlyeval_08_ablation_execute.sh
 
-  bash scripts/run_rq_final_08_ablation_default_reg_full16.sh
-  bash scripts/run_rq_final_08_ablation_fine_grained_full16.sh
+  bash scripts/run_earlyeval_08_ablation_default_reg_full16.sh
+  bash scripts/run_earlyeval_08_ablation_fine_grained_full16.sh
 fi
 
 if [[ "${RUN_LR_TFIDF:-0}" == "1" ]]; then
   echo "[repro] === 5a. LR/TF-IDF architecture comparison ==="
-  bash scripts/run_rq_final_06_model_compare_lr_tfidf.sh
+  bash scripts/run_earlyeval_06_model_compare_lr_tfidf.sh
 fi
 
 if [[ "${RUN_MLP:-0}" == "1" ]]; then
   echo "[repro] === 5b. MLP architecture comparison ==="
-  bash scripts/run_rq_final_09_direct_mlp_full16.sh
+  bash scripts/run_earlyeval_09_direct_mlp_full16.sh
 fi
 
 if [[ "${RUN_BERT:-0}" == "1" ]]; then
   echo "[repro] === 5c. BERT/CodeBERT architecture comparison ==="
-  bash scripts/run_rq_final_09_bert_finetune_full16.sh
+  bash scripts/run_earlyeval_09_bert_finetune_full16.sh
 fi
 
 if [[ "${RUN_LLM_LOGIT:-0}" == "1" ]]; then
   echo "[repro] === 5d. local LLM-logit architecture comparison ==="
-  bash scripts/run_rq_final_09_llm_logit_full16.sh
+  bash scripts/run_earlyeval_09_llm_logit_full16.sh
 fi
 
 if [[ "${BUILD_TABLES:-0}" == "1" ]]; then

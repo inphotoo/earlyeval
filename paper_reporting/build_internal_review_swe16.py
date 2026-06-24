@@ -2225,7 +2225,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--run-dir",
-        default="paper/experiments/rq_final_lightgbm_17/lightgbm_main",
+        default="paper/experiments/earlyeval_lightgbm/lightgbm_main",
         type=Path,
     )
     parser.add_argument(

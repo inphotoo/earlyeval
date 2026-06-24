@@ -26,7 +26,7 @@ import pandas as pd
 
 def _default_package_root() -> Path:
     for parent in Path(__file__).resolve().parents:
-        if (parent / "configs" / "rq_final.yaml").exists():
+        if (parent / "configs" / "earlyeval.yaml").exists():
             return parent
     return Path.cwd()
 
@@ -41,7 +41,7 @@ PAPER_DATA = Path(
 EXP = Path(
     os.environ.get(
         "EARLYEVAL_EXPERIMENT_DIR",
-        str(ROOT / "paper/experiments/rq_final_lightgbm_17"),
+        str(ROOT / "paper/experiments/earlyeval_lightgbm"),
     )
 ).resolve()
 OUT = Path(
@@ -522,10 +522,7 @@ def _build_decisions_all() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, di
 
 
 def _load_tokenizer_helpers() -> Any:
-    candidates = [
-        Path(__file__).with_name("build_internal_review_swe16.py"),
-        ROOT / "paper/experiments/rq_final_lightgbm_17/build_internal_review_swe16.py",
-    ]
+    candidates = [Path(__file__).with_name("build_internal_review_swe16.py")]
     for path in candidates:
         if not path.exists():
             continue

@@ -2,39 +2,39 @@
 set -euo pipefail
 
 # Usage:
-#   bash VERIFY_RELEASE_LOCAL.sh /path/to/SweBench_Organized_Package_final3
+#   bash VERIFY_RELEASE_LOCAL.sh
 #
-# This verifies that the code-only GitHub release is aligned with the active
-# training/testing source tree. It intentionally ignores generated experiment
-# outputs and local-only config files.
+# This verifies the code-only release tree after public-name normalization. It
+# intentionally checks source code and entrypoints, not generated experiment
+# outputs.
 
-if [[ $# -lt 1 ]]; then
-  cat >&2 <<'EOF'
-Usage:
-  bash VERIFY_RELEASE_LOCAL.sh /path/to/SweBench_Organized_Package_final3
-EOF
-  exit 2
-fi
-
-SOURCE_ROOT="$(cd "$1" && pwd)"
 RELEASE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${RELEASE_ROOT}"
 
-echo "[verify] source=${SOURCE_ROOT}"
 echo "[verify] release=${RELEASE_ROOT}"
 
-diff -qr -x '__pycache__' -x '*.pyc' "${SOURCE_ROOT}/final3" "${RELEASE_ROOT}/final3"
-diff -qr "${SOURCE_ROOT}/scripts" "${RELEASE_ROOT}/scripts"
-diff -qr -x 'paths.yaml' "${SOURCE_ROOT}/configs" "${RELEASE_ROOT}/configs"
+test -d earlyeval
+test -f configs/earlyeval.yaml
+test -f configs/paths.example.yaml
+test -f paper_reporting/build_rq_tables_bundle.py
 
-cmp -s \
-  "${SOURCE_ROOT}/paper/experiments/rq_final_lightgbm_17/build_internal_review_swe16.py" \
-  "${RELEASE_ROOT}/paper_reporting/build_internal_review_swe16.py"
+find earlyeval paper_reporting -type f -name '*.py' -print0 | xargs -0 python -m py_compile
+find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
 
-cmp -s \
-  "${SOURCE_ROOT}/paper/icse_submission_draft/rq_tables_reorg_20260623/build_rq_tables_bundle.py" \
-  "${RELEASE_ROOT}/paper_reporting/build_rq_tables_bundle.py"
+python -m earlyeval.cli --help >/dev/null
+python -m earlyeval.cli experiment list --registry configs/experiment_registry.yaml >/dev/null
 
-find "${RELEASE_ROOT}" -type f -name '*.py' -print0 | xargs -0 python -m py_compile
-find "${RELEASE_ROOT}/scripts" -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+bad_names=(
+  "final""3"
+  "rq_""final"
+  "lightgbm_""17"
+  "SweBench_Organized_Package_""final""3"
+)
+for bad_name in "${bad_names[@]}"; do
+  if grep -RInF "${bad_name}" README.md configs earlyeval paper_reporting scripts; then
+    echo "[verify] internal release name remains: ${bad_name}" >&2
+    exit 1
+  fi
+done
 
-echo "[verify] ok: code release matches the current source tree."
+echo "[verify] ok: code release is self-consistent."
