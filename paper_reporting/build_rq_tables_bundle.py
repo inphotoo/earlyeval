@@ -1209,7 +1209,7 @@ def _component_token_savings(
             as_index=False,
         )
         .agg(
-            prefix_rows=("traj_id", "size"),
+            counted_prefixes=("traj_id", "size"),
             trajectories=("traj_id", "nunique"),
             context_call_input_tokens_est=("context_call_input_tokens_est", "sum"),
         )
@@ -1427,7 +1427,7 @@ def _prefix_table_counts(config: BenchConfig, decisions_all: pd.DataFrame) -> di
         return {
             "benchmark": config.benchmark,
             "dataset_key": config.dataset_key,
-            "prefix_rows": 0,
+            "decomposed_prefixes": 0,
             "collected_trajectories": 0,
             "collected_agents": 0,
             "collected_instances": 0,
@@ -1461,7 +1461,7 @@ def _prefix_table_counts(config: BenchConfig, decisions_all: pd.DataFrame) -> di
     return {
         "benchmark": config.benchmark,
         "dataset_key": config.dataset_key,
-        "prefix_rows": int(parquet.metadata.num_rows),
+        "decomposed_prefixes": int(parquet.metadata.num_rows),
         "collected_trajectories": int(len(traj_ids)),
         "collected_agents": int(len(model_ids)),
         "collected_instances": int(len(instance_ids)),
@@ -1476,7 +1476,7 @@ def _build_trajectory_prefix_counts(decisions_all: pd.DataFrame) -> pd.DataFrame
     total = {
         "benchmark": "All benchmarks",
         "dataset_key": "ALL",
-        "prefix_rows": int(out["prefix_rows"].sum()),
+        "decomposed_prefixes": int(out["decomposed_prefixes"].sum()),
         "collected_trajectories": int(out["collected_trajectories"].sum()),
         "collected_agents": int(out["collected_agents"].sum()),
         "collected_instances": int(out["collected_instances"].sum()),
