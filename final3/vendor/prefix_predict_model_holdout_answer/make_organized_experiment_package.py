@@ -134,8 +134,8 @@ def build_universal_tables() -> None:
         "test-posthoc all-policy grid; diagnostic, not selection source",
     )
 
-    validation_rows = read_table_from_md(universal_md, "## Validation 汇总")
-    test_rows = read_table_from_md(universal_md, "## Test 汇总")
+    validation_rows = read_table_from_md(universal_md, 'Public-release English note.')
+    test_rows = read_table_from_md(universal_md, 'Public-release English note.')
     validation = {
         row[0]: {
             "valid_save_pct": row[1].replace("%", ""),
@@ -529,45 +529,7 @@ From `universal_dual_head_strategy_latest.md`:
     )
     write_text(
         PKG / "README.md",
-        """# Organized Experiment Package 2026-05-03
-
-这个文件夹是 `prefix_predict_model_holdout_answer` 近期实验的清理版：把主结果、诊断、代码快照、复现命令和 artifact 清单放到一起。
-
-## Start Here
-
-1. `01_final_recommendation/final_strategy_summary.md`
-2. `06_paper_tables/universal_strategy_split_summary.csv`
-3. `00_quick_start/commands.md`
-4. `02_data_audit/gpt52codex_source_trace.md`
-5. `99_source_manifests/artifact_manifest.csv`
-
-## Main Takeaway
-
-当前最适合写成论文主策略的是：
-
-```text
-no_model_id + strong_reg + dual-head + calibrated I + s0.95/f0.95 + min0 + k1
-```
-
-它是 validation-only / valid-minimax 选出来的统一策略，不是 test-posthoc 调参。
-
-## Folder Map
-
-- `00_quick_start/`: 复现实验和刷新图表的命令。
-- `01_final_recommendation/`: 最终统一策略、核心报告和全策略 test-posthoc 表。
-- `02_data_audit/`: `gpt-5-2-codex` / 18-model / raw parquet 数据质量追溯。
-- `03_core_results/`: bottom3 / mid3 / top3 最新 no_model_id + strong_reg + dual-head 结果，以及 safe-stop 总览。
-- `04_diagnostics/`: 阈值、hard subset AUC、prior baseline、conjunctive gate 等诊断摘要。
-- `05_code_manifest/`: 顶层 Python 代码快照和脚本用途表。
-- `06_paper_tables/`: 更适合直接放论文/appendix 的小表。
-- `99_source_manifests/`: 所有原始 artifact 的路径、大小、是否复制。
-
-## Copy Policy
-
-- 小型 `.md` / `.csv` / plot 已复制进来。
-- 大型 parquet、模型文件、大 CSV 不复制；只在 `artifact_manifest.csv` / `large_artifacts_not_copied.csv` 中登记源路径。
-- 因此这个包可以安全浏览，不会再复制一遍几十 GB 的中间矩阵。
-""",
+        'Public-release English note.',
     )
 
 

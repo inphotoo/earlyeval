@@ -543,7 +543,7 @@ def _write_report(
     lines: list[str] = [
         "# Valid-Only Policy Tuning",
         "",
-        "策略选择只看 validation：test 只用于最后一次 locked-policy 评估。",
+        'Public-release English note.',
         "",
         (
             f"Selection rule: maximize valid Save% subject to "

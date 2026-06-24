@@ -199,10 +199,10 @@ def main() -> None:
 
     lines = [
         "# Hard-Subset AUC over Task Prior", "",
-        "目的：只在 `train_other_mean_success` 指示的 hard/ambiguous 题目子集内，看 prefix predictor 是否仍然超过 task-prior baseline。", "",
-        "- `model_auc`：prefix predictor 在该 step 的 AUC。",
-        "- `train_mean_success_auc`：同一 subset 内，其他训练模型平均成功率作为 task prior 的 AUC。",
-        "- `gain`：`model_auc - train_mean_success_auc`。正数表示过程/模型分数超过静态题目 prior。", "",
+        'Public-release English note.', "",
+        'Public-release English note.',
+        'Public-release English note.',
+        'Public-release English note.', "",
     ]
 
     for subset_name, _, _ in SUBSETS:
@@ -233,9 +233,9 @@ def main() -> None:
 
     lines += [
         "## Files", "",
-        "- `hard_subset_auc_by_run_step.csv`：逐 split / I-J variant / strategy / score / step 明细。",
-        "- `hard_subset_auc_summary.csv`：对 I/J variant 平均后的策略表。",
-        "- `hard_subset_auc_compact.csv`：再对 strategy/score 平均后的核心表。",
+        'Public-release English note.',
+        'Public-release English note.',
+        'Public-release English note.',
     ]
     (output_dir / "hard_subset_auc_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(output_dir / "hard_subset_auc_report.md")

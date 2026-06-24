@@ -1,10 +1,4 @@
-"""
-模型训练模块。
-
-实现 LR / LightGBM 训练器：
-  - LR: 支持 dense / sparse 自动后端（cuML 优先）
-  - LightGBM: 支持 dense / sparse，并带早停
-"""
+'Public-release English note.'
 from __future__ import annotations
 
 import pickle
@@ -23,10 +17,7 @@ logger = get_logger("trainer")
 
 
 class SingleClassBinaryProbaEstimator:
-    """
-    训练集只有 0 或只有 1 时，逻辑回归无法拟合；用恒概率满足 predict_proba[:,1] 接口。
-    仅用于小数据/烟测，指标无区分度。
-    """
+    'Public-release English note.'
 
     def __init__(self, only_positive: bool):
         self.only_positive = bool(only_positive)
@@ -56,15 +47,13 @@ def train_logistic_regression(
     model_name: str = "lr",
     C_grid: list[float] | None = None,
 ) -> Any:
-    """
-    用网格搜索找最佳 C，然后返回在训练集上重训的最佳 LR。
-    """
+    'Public-release English note.'
     y_train = np.asarray(y_train).astype(int).ravel()
     u_tr = np.unique(y_train)
     if len(u_tr) < 2:
         logger.warning(
-            f"[{model_name}] 训练集仅含单一类别 {u_tr.tolist()}，无法拟合 LogisticRegression；"
-            "改用恒概率占位模型（小数据/划分导致，全量数据通常不会出现）。"
+            'Public-release English note.'
+            'Public-release English note.'
         )
         return SingleClassBinaryProbaEstimator(only_positive=(int(u_tr[0]) == 1))
 
@@ -99,7 +88,7 @@ def train_logistic_regression(
     logger.info(f"[{model_name}] Best C={best_C} with AUC={best_score:.4f}")
     logger.info(f"[{model_name}] Backend used during search: {'GPU(cuML)' if use_gpu_backend else 'CPU(sklearn)'}")
 
-    # 用最佳 C 在全训练集重训
+    # Public-release English note.
     final_lr, final_gpu = _fit_lr_with_auto_backend(
         X_train=X_train,
         y_train=y_train,
@@ -117,9 +106,7 @@ def _fit_lr_with_auto_backend(
     w_train: np.ndarray | None,
     C: float,
 ):
-    """
-    优先尝试 cuML GPU LR；不可用时自动回退 sklearn CPU LR。
-    """
+    'Public-release English note.'
     if config.LR_PREFER_GPU:
         model = _fit_cuml_lr(X_train, y_train, w_train, C)
         if model is not None:
@@ -134,7 +121,7 @@ def _fit_lr_with_auto_backend(
         class_weight="balanced",
         random_state=config.SPLIT_SEED,
     )
-    # lbfgs 忽略 n_jobs；liblinear 可使用 n_jobs
+    # Public-release English note.
     if solver == "liblinear":
         cpu_kwargs["n_jobs"] = -1
     model = LogisticRegression(
@@ -180,7 +167,7 @@ def _fit_cuml_lr(
 
 
 class _CuMLEstimatorAdapter:
-    """统一 cuML 与 sklearn 的推理接口。"""
+    'Public-release English note.'
 
     def __init__(self, model):
         self.model = model
@@ -211,7 +198,7 @@ class _CuMLEstimatorAdapter:
 
 
 class _SingleClassLGBMPredictor:
-    """与 Booster.predict 一致返回正类概率；save 时走 pickle 分支。"""
+    'Public-release English note.'
 
     def __init__(self, p_pos: float):
         self.p_pos = float(p_pos)
@@ -232,7 +219,7 @@ def train_lightgbm(
     feature_names: list[str] | None = None,
     model_name: str = "lgbm",
 ) -> Any:
-    """训练 LightGBM 模型（支持 dense / sparse 特征）。"""
+    'Public-release English note.'
     import lightgbm as lgb
 
     y_train = np.asarray(y_train).astype(int).ravel()
@@ -240,8 +227,8 @@ def train_lightgbm(
     if len(u_tr) < 2:
         p = 1.0 if int(u_tr[0]) == 1 else 0.0
         logger.warning(
-            f"[{model_name}] 训练集仅含单一类别 {u_tr.tolist()}，跳过 LightGBM 训练，"
-            f"使用恒预测 p={p}。"
+            'Public-release English note.'
+            'Public-release English note.'
         )
         return _SingleClassLGBMPredictor(p)
 
@@ -283,10 +270,7 @@ def train_lightgbm(
 
 
 def save_model(model, path: Path):
-    """保存模型到文件。
-
-    LightGBM 是可选依赖；保存 sklearn / cuML / pickle 模型时不应强制 import。
-    """
+    'Public-release English note.'
     is_lgbm_booster = False
     try:
         import lightgbm as lgb
@@ -303,7 +287,7 @@ def save_model(model, path: Path):
 
 
 def load_model(path: Path):
-    """加载模型。"""
+    'Public-release English note.'
     if str(path).endswith(".lgb"):
         import lightgbm as lgb
         return lgb.Booster(model_file=str(path))

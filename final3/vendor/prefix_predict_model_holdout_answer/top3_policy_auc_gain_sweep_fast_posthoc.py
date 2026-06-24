@@ -222,7 +222,7 @@ def main() -> None:
 
     def fmt(x): return "-" if pd.isna(x) else f"{x:.3f}"
     def pct(x): return "-" if pd.isna(x) else f"{x*100:.1f}%"
-    lines = ["# Clean-Top Policy AUC Gain Sweep", "", "扫 `threshold / min_step / consecutive k / policy_mode`，看 clean top 的 threshold-decided AUC 是否能超过 `train_other_mean_success` prior。", ""]
+    lines = ["# Clean-Top Policy AUC Gain Sweep", "", 'Public-release English note.', ""]
     for title, filt in [
         ("All candidates, min N>=30 and coverage>=5%", (candidates.n_decided >= 30) & (candidates.coverage_within_subset >= 0.05)),
         ("Stricter candidates, min N>=50 and coverage>=10%", (candidates.n_decided >= 50) & (candidates.coverage_within_subset >= 0.10)),

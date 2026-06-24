@@ -1,10 +1,4 @@
-"""
-动作分类器。
-
-实现文档 §6 的 taxonomy，严格按照：
-  先判 test → 再判 run_python → 再判其余
-避免 "python -m pytest" 被误归为 run_python。
-"""
+'Public-release English note.'
 from __future__ import annotations
 
 import re
@@ -14,12 +8,7 @@ import config
 
 
 def classify_action(action_text: Optional[str]) -> Tuple[str, List[str], str]:
-    """
-    对一条 action 文本进行分类。
-
-    Returns:
-        (major_type, subtypes_list, primary_subtype)
-    """
+    'Public-release English note.'
     if not action_text:
         return "none", [], "none"
 
@@ -38,7 +27,7 @@ def classify_action(action_text: Optional[str]) -> Tuple[str, List[str], str]:
         major = config.MAJOR_TYPE_MAP.get(primary, "edit")
         return major, subtypes, primary
 
-    # ── bash 命令 ──
+    # Public-release English note.
     lower = s.lower()
     subtypes = _classify_bash(s, lower)
     primary = subtypes[0] if subtypes else "run_cli"
@@ -47,7 +36,7 @@ def classify_action(action_text: Optional[str]) -> Tuple[str, List[str], str]:
 
 
 def _classify_editor(s: str) -> list[str]:
-    """str_replace_editor 子类型判断。"""
+    'Public-release English note.'
     padded = f" {s} "
     subtypes = []
     if " view " in padded or s.startswith("str_replace_editor view "):
@@ -64,16 +53,13 @@ def _classify_editor(s: str) -> list[str]:
 
 
 def _classify_bash(s: str, lower: str) -> list[str]:
-    """
-    Bash 命令子类型判断。
-    关键：test 在 run_python 之前判定。
-    """
+    'Public-release English note.'
     subtypes = []
 
-    # ── test（优先级最高）──
+    # Public-release English note.
     if _is_test_command(lower):
         subtypes.append("test")
-        return subtypes  # test 直接返回，不混分
+        return subtypes  # Public-release English note.
 
     # ── run_python ──
     if _is_python_command(lower):
@@ -95,13 +81,13 @@ def _classify_bash(s: str, lower: str) -> list[str]:
         subtypes.append("read_search")
         return subtypes
 
-    # ── 兜底 ──
+    # Public-release English note.
     subtypes.append("run_cli")
     return subtypes
 
 
 # ═══════════════════════════════════════════════════
-# 细粒度匹配规则
+# Public-release English note.
 # ═══════════════════════════════════════════════════
 
 _TEST_PATTERNS = [

@@ -1,9 +1,4 @@
-"""
-Prefix 表构建器。
-
-将每条轨迹展开为 0..n_steps 个 prefix 样本，
-并为每个 prefix 计算全部手工特征（A~H 组 + J 组；I 组为 feature_engineer 中 TF-IDF）。
-"""
+'Public-release English note.'
 from __future__ import annotations
 
 import glob
@@ -41,7 +36,7 @@ def _iter_tool_parquet_files(input_dir: str) -> list[str]:
 
 
 def _similarity(a: str, b: str) -> float:
-    """简单的 Jaccard 相似度用于判断 action 是否重复。"""
+    'Public-release English note.'
     if not a or not b:
         return 0.0
     sa, sb = set(a.split()), set(b.split())
@@ -54,11 +49,7 @@ def build_prefix_samples_for_trajectory(
     row: pd.Series,
     step_df_for_traj: Optional[pd.DataFrame] = None,
 ) -> list[dict]:
-    """
-    为一条轨迹构建所有 prefix 样本。
-
-    如果提供了 step_df_for_traj，直接使用；否则从 row 重建。
-    """
+    'Public-release English note.'
     from step_builder import rebuild_steps_for_trajectory
 
     traj_id = row.get("traj_id", "")
@@ -66,11 +57,11 @@ def build_prefix_samples_for_trajectory(
     resolved = int(bool(row.get("resolved", False)))
     model = row.get("model", "")
 
-    # ── 获取 preamble ──
+    # Public-release English note.
     preamble = build_preamble_info(row)
     task_prompt_text = preamble["task_prompt_text"]
 
-    # ── 获取 steps ──
+    # Public-release English note.
     if step_df_for_traj is not None and len(step_df_for_traj) > 0:
         steps = step_df_for_traj.sort_values("step_idx").to_dict("records")
     else:
@@ -81,7 +72,7 @@ def build_prefix_samples_for_trajectory(
 
     prefix_samples = []
 
-    # ── prefix_step_idx = 0（只有 preamble）──
+    # Public-release English note.
     p0 = _build_prefix_features(
         traj_id=traj_id,
         instance_id=instance_id,
@@ -124,14 +115,14 @@ def _build_prefix_features(
     n_steps_total: int,
     sample_weight: float,
 ) -> dict:
-    """为一个 prefix 构建全部特征（A~H 组）。"""
+    'Public-release English note.'
 
     prefix_id = f"{traj_id}::p{prefix_step_idx}"
     t = prefix_step_idx
     n = len(steps)
 
     # ══════════════════════════════════════════════
-    # A 组: Prefix Progress / 元信息
+    # Public-release English note.
     # ══════════════════════════════════════════════
     prefix_action_text_parts = []
     prefix_feedback_text_parts = []
@@ -178,11 +169,11 @@ def _build_prefix_features(
     prefix_assistant_content_text = "\n".join(prefix_assistant_content_parts)
 
     feat = {
-        # 标识
+        # Public-release English note.
         "prefix_id": prefix_id,
         "traj_id": traj_id,
         "instance_id": instance_id,
-        # 关键修复：group_id 必须与 trajectory 对齐，避免同一 instance 下多轨迹混组。
+        # Public-release English note.
         "group_id": traj_id,
         "resolved": resolved,
         "model": model,
@@ -190,19 +181,19 @@ def _build_prefix_features(
         "n_steps_total_for_weighting": n_steps_total,
         "sample_weight": sample_weight,
 
-        # 文本字段（用于后续 TF-IDF）
+        # Public-release English note.
         "task_prompt_text": task_prompt_text,
         "prefix_action_text": prefix_action_text,
         "prefix_feedback_text": prefix_feedback_text,
         "last_action_text": steps[-1].get("action_text", "") if steps else "",
         "last_feedback_text": steps[-1].get("combined_feedback_text", "") if steps else "",
-        # 新增：thought / assistant_content 文本字段
+        # Public-release English note.
         "prefix_thought_text": prefix_thought_text,
         "last_thought_text": steps[-1].get("thought_text", "") if steps else "",
         "prefix_assistant_content_text": prefix_assistant_content_text,
         "last_assistant_content_text": steps[-1].get("assistant_content_text", "") if steps else "",
 
-        # A 组
+        # Public-release English note.
         "steps_observed_so_far": n,
         "actions_so_far": n,
         "observations_so_far": obs_total,
@@ -215,12 +206,12 @@ def _build_prefix_features(
         "has_any_action": n > 0,
         "model_id": model,
 
-        # 标签
+        # Public-release English note.
         "label": resolved,
     }
 
     # ══════════════════════════════════════════════
-    # B 组: Last-Step 特征
+    # Public-release English note.
     # ══════════════════════════════════════════════
     if steps:
         last = steps[-1]
@@ -257,7 +248,7 @@ def _build_prefix_features(
         })
 
     # ══════════════════════════════════════════════
-    # C 组: 累计动作计数
+    # Public-release English note.
     # ══════════════════════════════════════════════
     subtype_counts = {st: 0 for st in config.ALL_SUBTYPES}
     bash_calls = 0
@@ -293,7 +284,7 @@ def _build_prefix_features(
     })
 
     # ══════════════════════════════════════════════
-    # D 组: Milestone / 首次发生位置
+    # Public-release English note.
     # ══════════════════════════════════════════════
     first_edit = first_test = first_run_python = first_submit = None
     first_error = first_traceback = first_read = None
@@ -334,7 +325,7 @@ def _build_prefix_features(
     })
 
     # ══════════════════════════════════════════════
-    # E 组: Recency / 距离上次事件
+    # Public-release English note.
     # ══════════════════════════════════════════════
     last_edit = last_test = last_submit = last_error = last_traceback = last_read = None
 
@@ -365,7 +356,7 @@ def _build_prefix_features(
     })
 
     # ══════════════════════════════════════════════
-    # F 组: 比例与节奏
+    # Public-release English note.
     # ══════════════════════════════════════════════
     reads = feat["read_view_so_far"] + feat["read_search_so_far"]
     edits = feat["edits_so_far"]
@@ -386,18 +377,18 @@ def _build_prefix_features(
     })
 
     # ══════════════════════════════════════════════
-    # G 组: Observation 错误与测试状态
+    # Public-release English note.
     # ══════════════════════════════════════════════
     traceback_seen = any(s.get("traceback_seen_this_step") for s in steps)
     tool_error_seen = any(s.get("tool_error_seen_this_step") for s in steps)
     test_fail_seen = any(s.get("test_fail_seen_this_step") for s in steps)
     test_pass_seen = any(s.get("test_pass_seen_this_step") for s in steps)
 
-    # 从所有 feedback 文本提取细化错误
+    # Public-release English note.
     all_feedback = prefix_feedback_text
     all_sig = parse_observation(all_feedback)
 
-    # fail count 追踪
+    # Public-release English note.
     fail_counts_history = []
     for s in steps:
         fc = s.get("last_fail_count_this_step")
@@ -435,7 +426,7 @@ def _build_prefix_features(
     })
 
     # ══════════════════════════════════════════════
-    # H 组: 循环 / 迷茫 / 风险特征
+    # Public-release English note.
     # ══════════════════════════════════════════════
     repeated_action = False
     repeated_search = False
@@ -447,7 +438,7 @@ def _build_prefix_features(
     submit_then_edit = False
     test_after_submit = False
 
-    # 连续未 edit 和连续 read
+    # Public-release English note.
     long_no_edit_streak = 0
     long_read_streak = 0
     cur_no_edit = 0
@@ -461,7 +452,7 @@ def _build_prefix_features(
         major = s.get("action_major_type", "")
         primary = s.get("action_primary_subtype", "")
 
-        # 连续相同 action
+        # Public-release English note.
         if i > 0:
             prev = steps[i - 1]
             sim = _similarity(s.get("action_text", ""), prev.get("action_text", ""))
@@ -474,9 +465,9 @@ def _build_prefix_features(
 
         # edit failed
         feedback = s.get("combined_feedback_text", "")
-        if "pattern not found" in feedback.lower() or \
-           "not unique in the file" in feedback.lower() or \
-           "did not appear verbatim" in feedback.lower() or \
+        if "pattern not found" in feedback.lower() or\
+           "not unique in the file" in feedback.lower() or\
+           "did not appear verbatim" in feedback.lower() or\
            "replacement was not performed" in feedback.lower():
             edit_failed_seen = True
 
@@ -497,7 +488,7 @@ def _build_prefix_features(
         if long_read_streak >= 5 and edits == 0:
             looping_read = True
 
-        # submit / test 逻辑
+        # Public-release English note.
         if primary == "test":
             has_tested_before_submit = True if not has_submitted else has_tested_before_submit
             if has_submitted:
@@ -505,10 +496,10 @@ def _build_prefix_features(
 
         if primary == "submit":
             if not has_submitted:
-                # 首次 submit
+                # Public-release English note.
                 if not has_tested_before_submit:
                     submit_without_test = True
-                if i < 3:  # 前 3 步就提交
+                if i < 3:  # Public-release English note.
                     premature_submit = True
             else:
                 multi_submit = True
@@ -533,7 +524,7 @@ def _build_prefix_features(
     })
 
     # ══════════════════════════════════════════════
-    # J 组: Cognitive / Narrative 统计特征
+    # Public-release English note.
     # ══════════════════════════════════════════════
     actions_denom = max(n, 1)
     avg_thought_overlap = (
@@ -569,12 +560,7 @@ def build_prefix_table(
     max_trajectories: Optional[int] = None,
     sample_trajectories_seed: Optional[int] = None,
 ) -> pd.DataFrame:
-    """
-    读取 tool parquet 文件，为每条轨迹构建所有 prefix 样本。
-
-    max_trajectories / sample_trajectories_seed:
-        与 build_step_table 一致（去重后截断；可选种子打乱再截断）。
-    """
+    'Public-release English note.'
     input_dir = input_dir or config.PARQUET_INPUT_DIR
     traj_df = _load_and_deduplicate_trajectories(input_dir=input_dir, dedup_seed=config.SPLIT_SEED)
     traj_df = _apply_max_trajectories_limit(
@@ -582,7 +568,7 @@ def build_prefix_table(
     )
     logger.info(f"Building prefix table from deduplicated trajectories: {len(traj_df)}")
 
-    # 分块写盘目录与配置
+    # Public-release English note.
     part_dir = config.DATA_DIR / "prefix_parts"
     part_dir.mkdir(parents=True, exist_ok=True)
     chunk_size = max(int(config.PREFIX_CHUNK_SIZE), 1)
@@ -616,30 +602,30 @@ def build_prefix_table(
             try:
                 samples = build_prefix_samples_for_trajectory(row)
                 buffer.extend(samples)
-                # 分块写盘，避免一次性占用过多内存
+                # Public-release English note.
                 if len(buffer) >= chunk_size:
                     flush_buffer()
             except Exception as e:
                 logger.warning(f"  Failed for traj {row.get('traj_id')}: {e}")
 
-    # 将剩余 buffer 落盘
+    # Public-release English note.
     flush_buffer()
 
     logger.info(f"Total trajectories processed: {total_trajs}")
     logger.info(f"Total prefix samples (streamed): {total_prefix_samples}")
 
-    # 将所有分块重新读入，拼成完整 prefix_df，保持对上层接口不变
+    # Public-release English note.
     if part_paths:
         dfs = [pd.read_parquet(p) for p in sorted(part_paths)]
         prefix_df = pd.concat(dfs, ignore_index=True)
     else:
-        # 极端小数据场景：没有触发 flush，仅在内存中
+        # Public-release English note.
         prefix_df = pd.DataFrame(buffer)
         total_prefix_samples = len(prefix_df)
 
     logger.info(f"Prefix table shape: {prefix_df.shape}")
 
-    # 统计
+    # Public-release English note.
     if len(prefix_df) > 0:
         logger.info(f"Label distribution:\n{prefix_df['label'].value_counts().to_string()}")
         logger.info(f"Prefix step distribution:\n{prefix_df['prefix_step_idx'].describe().to_string()}")

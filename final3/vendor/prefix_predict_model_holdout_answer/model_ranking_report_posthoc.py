@@ -476,12 +476,12 @@ def generate_report(
     good_set = set(prefix_models)
     lines: list[str] = []
     lines.append("=" * 98)
-    lines.append("  Agent 模型排名保序性分析：早停前后对比（当前 HELDOUT TEST — model_id 输入未知）")
+    lines.append('Public-release English note.')
     lines.append("=" * 98)
     lines.append("")
-    lines.append(f"  本报告只读取现有预测表：{metadata['predictions_path']}")
+    lines.append('Public-release English note.')
     lines.append(
-        f"  测试集：{metadata['n_prefix_rows']} prefix rows, "
+        'Public-release English note.'
         f"{metadata['n_trajectories']} trajectories, {metadata['n_instances']} instances"
     )
     lines.append(f"  heldout agent models: {len(metadata['heldout_models'])}")
@@ -491,20 +491,20 @@ def generate_report(
     )
     lines.append("  model_id feature values: ['__MISSING__']; model_id_input_mode: ['test_missing']")
     lines.append("")
-    lines.append("  口径说明：本报告复刻 reference 的 single-signal 策略。")
-    lines.append("    - 若某个 prefix 首次 p >= threshold，则把整条轨迹当作 success/resolved。")
-    lines.append("    - 若某个 prefix 首次 p <= 1-threshold，则把整条轨迹当作 failure/unresolved。")
-    lines.append("    - 未触发阈值则保留原始 resolved label。")
-    lines.append("    因此 FP（原本 unresolved 但被预测 success）会抬高 adjusted/new Rate；")
-    lines.append("    Drop = original_rate - adjusted_rate，负数表示 new Rate 比原始更高。")
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
     lines.append("")
 
-    lines.append("0. 展开/画图的 Prefix Models（★ = 表现较好或指定基线 D/G/I/J）")
+    lines.append('Public-release English note.')
     lines.append("-" * 98)
     selected = leaderboard[leaderboard["prefix_model"].isin(prefix_models)].copy()
     selected["plot_marker"] = "★"
     lines.append(
-        f"  {_cell('标记', 4)} {_cell('Prefix Model', 36)} {_cell('Abl?', 5, 'right')} "
+        'Public-release English note.'
         f"{_cell('Acc@0.5', 8, 'right')} {_cell('ROC-AUC', 8, 'right')} "
         f"{_cell('PR-AUC', 8, 'right')} {_cell('Brier', 8, 'right')}"
     )
@@ -518,13 +518,13 @@ def generate_report(
         )
     lines.append("")
 
-    lines.append("1. 原始 Agent 模型排名（当前 heldout test，按 resolve rate）")
+    lines.append('Public-release English note.')
     lines.append("-" * 98)
     orig_sorted = sorted(originals.items(), key=lambda x: x[1]["resolve_rate"], reverse=True)
     best_agent = orig_sorted[0][0] if orig_sorted else ""
     lines.append(
-        f"  {_cell('排名', 4, 'right')}  {_cell('Agent 模型', 62)} "
-        f"{_cell('总数', 5, 'right')} {_cell('Resolved', 8, 'right')} {_cell('Rate', 8, 'right')}"
+        'Public-release English note.'
+        'Public-release English note.'
     )
     lines.append(f"  {'-'*4}  {'-'*62} {'-'*5} {'-'*8} {'-'*8}")
     for rank, (name, stats) in enumerate(orig_sorted, 1):
@@ -533,13 +533,13 @@ def generate_report(
             f"  {rank:>4d}  {_cell(mark + name, 62)} {stats['total']:>5d} "
             f"{stats['resolved']:>8d} {stats['resolve_rate']:>7.1%}"
         )
-    lines.append(f"\n  共 {len(originals)} 个 heldout agent 模型；★ 标出原始 resolve rate 最高者。")
+    lines.append('Public-release English note.')
 
     section_num = 2
     for prefix_model in prefix_models:
         marker = "★ " if prefix_model in good_set else ""
         lines.append("")
-        lines.append(f"{section_num}. 早停后排名变化 — Prefix Model: {marker}{prefix_model}")
+        lines.append('Public-release English note.')
         lines.append("-" * 98)
         section_num += 1
         for threshold in thresholds:
@@ -559,18 +559,18 @@ def generate_report(
             lines.append(f"\n  Threshold = {threshold:.2f}")
             if agg_decided:
                 lines.append(
-                    f"    决策汇总: 共 {agg_decided} 个提前决策 "
-                    f"(占 {agg_decided / agg_total * 100:.1f}%), 准确率={agg_acc:.1%}"
+                    'Public-release English note.'
+                    'Public-release English note.'
                 )
             else:
-                lines.append("    决策汇总: 无提前决策")
-            lines.append(f"    误杀(FN)={agg_fn}, 误判成功(FP)={agg_fp}")
+                lines.append('Public-release English note.')
+            lines.append('Public-release English note.')
             lines.append(
-                f"  {_cell('原排名', 6, 'right')} {_cell('新排名', 6, 'right')} {_cell('Δ', 3, 'right')}  "
-                f"{_cell('Agent 模型', 42)} {_cell('原Rate', 7, 'right')} "
-                f"{_cell('新Rate', 7, 'right')} {_cell('Drop', 6, 'right')} "
+                'Public-release English note.'
+                'Public-release English note.'
+                'Public-release English note.'
                 f"{_cell('FN', 3, 'right')} {_cell('FP', 3, 'right')} "
-                f"{_cell('决策数', 6, 'right')} {_cell('决策准', 6, 'right')} {_cell('节省%', 6, 'right')}"
+                'Public-release English note.'
             )
             lines.append(
                 f"  {'-'*6} {'-'*6} {'-'*3}  {'-'*42} "
@@ -591,12 +591,12 @@ def generate_report(
                 )
 
     lines.append("")
-    lines.append(f"{section_num}. 排名保序性汇总")
+    lines.append('Public-release English note.')
     lines.append("-" * 98)
     lines.append(
-        f"  {_cell('Prefix Model', 36)} {_cell('阈值', 6, 'right')} {_cell('模型数', 6, 'right')} "
+        'Public-release English note.'
         f"{_cell('Kendall τ', 10, 'right')} {_cell('Spearman ρ', 11, 'right')} "
-        f"{_cell('最大排名变化', 12, 'right')}"
+        'Public-release English note.'
     )
     lines.append(f"  {'-'*36} {'-'*6} {'-'*6} {'-'*10} {'-'*11} {'-'*12}")
     for _, row in ranking_df.iterrows():
@@ -611,7 +611,7 @@ def generate_report(
     section_num += 1
 
     lines.append("")
-    lines.append(f"{section_num}. 关键结论")
+    lines.append('Public-release English note.')
     lines.append("-" * 98)
     for prefix_model in prefix_models:
         pm_data = all_rates[all_rates["prefix_model"] == prefix_model]
@@ -633,14 +633,14 @@ def generate_report(
                 ]["max_rank_change"].iloc[0]
             )
             lines.append(
-                f"    threshold={threshold:.2f}: 决策 {total_decided:>4d} 条, "
-                f"决策正确率 {_pct(decision_acc)}, 平均 rate 变化 {-avg_drop:+.1%}, "
-                f"加权节省 {weighted_saved:.1f}% 步数, 最大排名变化 {max_abs_rank_change}"
+                'Public-release English note.'
+                'Public-release English note.'
+                'Public-release English note.'
             )
     section_num += 1
 
     lines.append("")
-    lines.append(f"{section_num}. 正常最后一步轨迹级预测表现（不是早停策略）")
+    lines.append('Public-release English note.')
     lines.append("-" * 98)
     top_final = leaderboard.head(12)
     lines.append(
@@ -657,11 +657,11 @@ def generate_report(
             f"{row['pr_auc']:>8.3f} {row['brier']:>8.3f} {row['mean_prob']:>8.3f}"
         )
     lines.append("")
-    lines.append("  说明：本节只取每条 trajectory 的最后一个 prefix row；因此是轨迹级一次预测，")
-    lines.append("        不是 prefix-level evaluation_report.txt 里的逐前缀 ROC-AUC。")
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
 
     lines.append("")
-    lines.append(f"{section_num + 1}. 输出文件")
+    lines.append('Public-release English note.')
     lines.append("-" * 98)
     for name in [
         "report.txt",
@@ -676,7 +676,7 @@ def generate_report(
         "tradeoff_<prefix_model>.png",
     ]:
         lines.append(f"  - {name}")
-    lines.append(f"\n  图表目录：{output_dir}")
+    lines.append('Public-release English note.')
     return "\n".join(lines) + "\n"
 
 
@@ -783,7 +783,7 @@ def make_plots(
             ax.grid(axis="x", alpha=0.25)
             if ax is axes[0]:
                 ax.legend(fontsize=8)
-        fig.suptitle(f"Resolve-rate comparison — ★ {prefix_model}", fontsize=12)
+        fig.suptitle(f"Resolve-rate comparison - ★ {prefix_model}", fontsize=12)
         fig.tight_layout()
         fig.savefig(output_dir / f"resolve_rate_comparison_{_safe_name(prefix_model)}.png", dpi=160)
         plt.close(fig)
@@ -802,7 +802,7 @@ def make_plots(
         ax.axhline(0, color="black", linewidth=0.8, alpha=0.5)
         ax.set_xlabel("Threshold")
         ax.set_ylabel("Original - adjusted resolve rate (pp)")
-        ax.set_title(f"Rate change vs threshold — ★ {prefix_model}")
+        ax.set_title(f"Rate change vs threshold - ★ {prefix_model}")
         ax.grid(True, alpha=0.3)
         ax.legend(fontsize=8)
         fig.tight_layout()
@@ -822,7 +822,7 @@ def make_plots(
             )
         ax.set_xlabel("Threshold")
         ax.set_ylabel("Prefix steps saved (%)")
-        ax.set_title(f"Compute savings vs threshold — ★ {prefix_model}")
+        ax.set_title(f"Compute savings vs threshold - ★ {prefix_model}")
         ax.grid(True, alpha=0.3)
         ax.legend(fontsize=8)
         fig.tight_layout()
@@ -850,7 +850,7 @@ def make_plots(
         ax.axhline(0, color="black", linewidth=0.8, alpha=0.5)
         ax.set_xlabel("Prefix steps saved (%)")
         ax.set_ylabel("Original - adjusted resolve rate (pp)")
-        ax.set_title(f"Savings vs rate change — ★ {prefix_model}")
+        ax.set_title(f"Savings vs rate change - ★ {prefix_model}")
         ax.grid(True, alpha=0.3)
         ax.legend(fontsize=8)
         fig.tight_layout()

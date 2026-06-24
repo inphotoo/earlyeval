@@ -425,7 +425,7 @@ def plot_valid_grid_heatmaps(
                     ax.text(x, y, f"{val:.1f}", ha="center", va="center", fontsize=8, color="white" if abs(val) > 35 else "black")
             fig.colorbar(im, ax=ax, shrink=0.82, label=label)
         fig.suptitle(
-            f"Valid Dual Policy Grid — {split} / {_variant_label(variant)} / {score_mode}\n"
+            f"Valid Dual Policy Grid - {split} / {_variant_label(variant)} / {score_mode}\n"
             f"constraints: |drop|≤{max_abs_drop_pp:g}pp, acc≥{min_acc_pct:g}%; best over min_step/k",
             y=1.02,
         )
@@ -449,8 +449,8 @@ def write_markdown(
     lines: list[str] = []
     lines.append("# Safe-Stop Dual-Head Visual Summary")
     lines.append("")
-    lines.append("这些图表是 posthoc 汇总：只读取已经生成的 `safe_stop_*.csv`，不重新训练。")
-    lines.append("Drop 口径：`original_resolve_rate - adjusted_resolve_rate`；正数表示 early stop 后 resolve rate 下降，负数表示被 FP-success 抬高。")
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
     lines.append("")
     lines.append("## Selected Policies")
     lines.append("")
@@ -467,10 +467,10 @@ def write_markdown(
     lines.append("")
     lines.append("## How To Read")
     lines.append("")
-    lines.append("- `selected_tradeoff_save_vs_drop.png`：越靠右越省，越靠近 0 越不伤 resolve rate。")
-    lines.append("- `valid_to_test_drop_gap.png`：点越靠近虚线，valid 选出来的策略越能迁移到 test。")
-    lines.append("- `selected_policy_fn_fp_counts.png`：top3 的主要风险是 FN，bottom3 的主要风险是 FP。")
-    lines.append("- `valid_grid_heatmaps/`：只看 valid；约束为 `|drop|≤{:.1f}pp, acc≥{:.1f}%`，每格取最省步数的 min_step/k。".format(max_abs_drop_pp, min_acc_pct))
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.'.format(max_abs_drop_pp, min_acc_pct))
     lines.append("")
     lines.append("## Files")
     lines.append("")

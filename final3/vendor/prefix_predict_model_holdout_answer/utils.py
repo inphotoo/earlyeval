@@ -1,6 +1,4 @@
-"""
-公共工具：日志、计时器、IO 辅助。
-"""
+'Public-release English note.'
 import json
 import logging
 import sys
@@ -12,15 +10,15 @@ import config
 
 
 def get_logger(name: str) -> logging.Logger:
-    """获取带有统一格式的 logger。"""
+    'Public-release English note.'
     logger = logging.getLogger(name)
     if not logger.handlers:
         logger.setLevel(getattr(logging, config.LOG_LEVEL))
-        # 控制台
+        # Public-release English note.
         ch = logging.StreamHandler(sys.stdout)
         ch.setFormatter(logging.Formatter(config.LOG_FORMAT))
         logger.addHandler(ch)
-        # 文件
+        # Public-release English note.
         fh = logging.FileHandler(config.LOG_DIR / f"{name}.log", mode="a", encoding="utf-8")
         fh.setFormatter(logging.Formatter(config.LOG_FORMAT))
         logger.addHandler(fh)
@@ -28,10 +26,7 @@ def get_logger(name: str) -> logging.Logger:
 
 
 def rebind_all_file_loggers():
-    """
-    将当前进程内所有 logger 的 FileHandler 重新绑定到 config.LOG_DIR。
-    适用于运行时切换 run-name 后的日志目录重定向。
-    """
+    'Public-release English note.'
     log_dir = Path(config.LOG_DIR)
     log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -64,7 +59,7 @@ def rebind_all_file_loggers():
 
 @contextmanager
 def timer(logger: logging.Logger, task_name: str):
-    """带日志的计时上下文。"""
+    'Public-release English note.'
     logger.info(f"[START] {task_name}")
     t0 = time.perf_counter()
     yield
@@ -73,12 +68,12 @@ def timer(logger: logging.Logger, task_name: str):
 
 
 def save_json(obj, path: Path):
-    """保存 JSON 到文件。"""
+    'Public-release English note.'
     with open(path, "w", encoding="utf-8") as f:
         json.dump(obj, f, indent=2, ensure_ascii=False, default=str)
 
 
 def load_json(path: Path):
-    """从文件加载 JSON。"""
+    'Public-release English note.'
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)

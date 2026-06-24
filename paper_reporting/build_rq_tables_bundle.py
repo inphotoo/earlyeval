@@ -13,6 +13,9 @@ import json
 import math
 import os
 import re
+import hashlib
+import importlib.util
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -50,7 +53,24 @@ OUT = Path(
 SUPPORTING = OUT / "supporting"
 
 THRESHOLDS = [0.75, 0.80, 0.85, 0.90, 0.95, 0.97]
-CHAR_TOKEN_RATIO = 4.0
+LEGACY_CHAR_TOKEN_RATIO = 4.0
+TOKEN_METHOD = "model_tokenizer_component_sum_context_call_plus_generated_output"
+TOKENIZER_CACHE_ROOT = Path(
+    os.environ.get("EARLYEVAL_TOKENIZER_CACHE_ROOT", str(ROOT / "outputs/tokenizer_cache"))
+).resolve()
+TOKEN_PREFIX_CACHE_DIR = Path(
+    os.environ.get("EARLYEVAL_TOKEN_PREFIX_CACHE_DIR", str(EXP / "token_prefix_cache"))
+).resolve()
+TOKENIZER_LOCAL_FILES_ONLY = os.environ.get("EARLYEVAL_TOKENIZER_LOCAL_FILES_ONLY", "0").strip() in {
+    "1",
+    "true",
+    "TRUE",
+    "yes",
+}
+TOKEN_PARQUET_BATCH_SIZE = int(os.environ.get("EARLYEVAL_TOKEN_PARQUET_BATCH_SIZE", "8192"))
+TOKEN_ENCODE_BATCH_SIZE = int(os.environ.get("EARLYEVAL_TOKEN_ENCODE_BATCH_SIZE", "64"))
+TOKEN_PROGRESS_EVERY_ROWS = int(os.environ.get("EARLYEVAL_TOKEN_PROGRESS_EVERY_ROWS", "50000"))
+TOKEN_PROGRESS_EVERY_BATCHES = int(os.environ.get("EARLYEVAL_TOKEN_PROGRESS_EVERY_BATCHES", "25"))
 
 
 @dataclass(frozen=True)
@@ -501,136 +521,596 @@ def _build_decisions_all() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, di
     )
 
 
+def _load_tokenizer_helpers() -> Any:
+    candidates = [
+        Path(__file__).with_name("build_internal_review_swe16.py"),
+        ROOT / "paper/experiments/rq_final_lightgbm_17/build_internal_review_swe16.py",
+    ]
+    for path in candidates:
+        if not path.exists():
+            continue
+        spec = importlib.util.spec_from_file_location("earlyeval_tokenizer_helpers", path)
+        if spec is None or spec.loader is None:
+            continue
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    raise FileNotFoundError("Could not find build_internal_review_swe16.py for tokenizer helpers.")
+
+
+def _bool_env(value: str | None, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "y"}
+
+
+def _token_prefix_cache_path(dataset_key: str) -> Path:
+    return TOKEN_PREFIX_CACHE_DIR / f"{dataset_key}_model_tokenizer_source_split_prefix_tokens.parquet"
+
+
+def _token_prefix_cache_sidecar(cache_path: Path, suffix: str) -> Path:
+    return cache_path.with_name(f"{cache_path.name}{suffix}")
+
+
+def _source_token_cache_meta(prefix_table: Path, traj_ids: set[str]) -> dict[str, Any]:
+    resolved = prefix_table.expanduser().resolve()
+    stat = resolved.stat()
+    traj_digest = hashlib.sha256(
+        "\n".join(sorted(str(x) for x in traj_ids)).encode("utf-8")
+    ).hexdigest()
+    return {
+        "cache_version": 2,
+        "token_method": TOKEN_METHOD,
+        "prefix_table": str(resolved),
+        "prefix_table_size": int(stat.st_size),
+        "prefix_table_mtime_ns": int(stat.st_mtime_ns),
+        "traj_count": int(len(traj_ids)),
+        "traj_sha256": traj_digest,
+        "tokenizer_local_files_only": bool(TOKENIZER_LOCAL_FILES_ONLY),
+    }
+
+
+def _required_source_token_columns() -> set[str]:
+    return {
+        "traj_id",
+        "model_id",
+        "prefix_step_idx",
+        "context_call_input_tokens_est",
+        "future_context_call_input_tokens_saved_if_stop_est",
+        "baseline_input_tokens_est",
+        "external_input_tokens_cum",
+        "generated_output_tokens_cum",
+        "transcript_total_tokens_cum",
+        "baseline_external_input_tokens_est",
+        "baseline_output_tokens_est",
+        "baseline_transcript_total_tokens_est",
+        "token_count_method",
+        "tokenizer_family",
+        "tokenizer_backend",
+        "tokenizer_name",
+    }
+
+
+def _load_source_token_cache(
+    cache_path: Path,
+    expected_meta: dict[str, Any],
+    traj_ids: set[str],
+) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+    meta_path = _token_prefix_cache_sidecar(cache_path, ".meta.json")
+    manifest_path = _token_prefix_cache_sidecar(cache_path, ".manifest.csv")
+    if not cache_path.exists() or not meta_path.exists() or not manifest_path.exists():
+        return None
+    try:
+        actual_meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if any(actual_meta.get(key) != value for key, value in expected_meta.items()):
+        return None
+    try:
+        token_rows = pd.read_parquet(cache_path)
+        manifest = pd.read_csv(manifest_path)
+    except Exception:
+        return None
+    if not _required_source_token_columns().issubset(token_rows.columns):
+        return None
+    wanted = set(str(x) for x in traj_ids)
+    if set(token_rows["traj_id"].astype(str)) != wanted:
+        return None
+    token_rows["traj_id"] = token_rows["traj_id"].astype(str)
+    return token_rows, manifest
+
+
+def _write_source_token_cache(
+    cache_path: Path,
+    token_rows: pd.DataFrame,
+    manifest: pd.DataFrame,
+    meta: dict[str, Any],
+) -> None:
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    token_rows.to_parquet(cache_path, index=False)
+    manifest.to_csv(_token_prefix_cache_sidecar(cache_path, ".manifest.csv"), index=False)
+    _token_prefix_cache_sidecar(cache_path, ".meta.json").write_text(
+        json.dumps(meta, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+
+def _safe_string(value: Any) -> str:
+    if value is None:
+        return ""
+    try:
+        if pd.isna(value):
+            return ""
+    except Exception:
+        pass
+    return str(value)
+
+
+def _add_prefix_source_token_features(raw: pd.DataFrame, helpers: Any) -> pd.DataFrame:
+    df = raw.sort_values(["traj_id", "prefix_step_idx"]).reset_index(drop=True)
+    for kind in ["action", "feedback", "thought", "assistant"]:
+        df[f"{kind}_prefix_tokens_component"] = (
+            df.groupby("traj_id", sort=False)[f"{kind}_step_tokens_component"]
+            .cumsum()
+            .astype("int64")
+        )
+        df[f"{kind}_prefix_nonempty_component"] = (
+            df.groupby("traj_id", sort=False)[f"{kind}_step_nonempty_component"]
+            .cumsum()
+            .astype("int64")
+        )
+    df["step_method_severity_cum_component"] = (
+        df.groupby("traj_id", sort=False)["step_method_severity_component"]
+        .cummax()
+        .astype("int64")
+    )
+    method_severity = np.maximum(
+        df["task_method_severity_component"].to_numpy(dtype="int64"),
+        df["step_method_severity_cum_component"].to_numpy(dtype="int64"),
+    )
+
+    context_components = ["action", "feedback", "assistant"]
+    internal_separators = sum(
+        np.maximum(df[f"{kind}_prefix_nonempty_component"].to_numpy(dtype="int64") - 1, 0)
+        for kind in context_components
+    )
+    top_components = (df["task_prompt_chars_component"].to_numpy(dtype="int64") > 0).astype("int64")
+    for kind in context_components:
+        top_components += (
+            df[f"{kind}_prefix_nonempty_component"].to_numpy(dtype="int64") > 0
+        ).astype("int64")
+    top_level_separators = np.maximum(top_components - 1, 0)
+    separator_tokens = (
+        (internal_separators + top_level_separators)
+        * df["newline_tokens_component"].to_numpy(dtype="int64")
+    )
+
+    context_total = df["task_prompt_tokens_component"].to_numpy(dtype="int64")
+    for kind in context_components:
+        context_total = context_total + df[f"{kind}_prefix_tokens_component"].to_numpy(dtype="int64")
+    df["context_call_input_tokens_est"] = (context_total + separator_tokens).astype("int64")
+
+    df["external_input_tokens_cum"] = (
+        df["task_prompt_tokens_component"].to_numpy(dtype="int64")
+        + df["feedback_prefix_tokens_component"].to_numpy(dtype="int64")
+    )
+    df["generated_output_tokens_cum"] = (
+        df["action_prefix_tokens_component"].to_numpy(dtype="int64")
+        + df["thought_prefix_tokens_component"].to_numpy(dtype="int64")
+        + df["assistant_prefix_tokens_component"].to_numpy(dtype="int64")
+    )
+    df["transcript_total_tokens_cum"] = (
+        df["external_input_tokens_cum"] + df["generated_output_tokens_cum"]
+    )
+    df["token_count_method"] = [
+        helpers._component_method_from_severity(int(severity)) for severity in method_severity
+    ]
+
+    df["future_context_call_input_tokens_saved_if_stop_est"] = (
+        df.groupby("traj_id", sort=False)["context_call_input_tokens_est"]
+        .transform(lambda s: s.iloc[::-1].cumsum().iloc[::-1] - s)
+        .astype("int64")
+    )
+    baseline_input = (
+        df.groupby("traj_id", sort=False)["context_call_input_tokens_est"]
+        .sum()
+        .rename("baseline_input_tokens_est")
+    )
+    final = (
+        df.groupby("traj_id", sort=False)
+        .tail(1)[
+            [
+                "traj_id",
+                "external_input_tokens_cum",
+                "generated_output_tokens_cum",
+                "transcript_total_tokens_cum",
+            ]
+        ]
+        .rename(
+            columns={
+                "external_input_tokens_cum": "baseline_external_input_tokens_est",
+                "generated_output_tokens_cum": "baseline_output_tokens_est",
+                "transcript_total_tokens_cum": "baseline_transcript_total_tokens_est",
+            }
+        )
+    )
+    df = df.join(baseline_input, on="traj_id").merge(final, on="traj_id", how="left")
+    keep_cols = [
+        "traj_id",
+        "model_id",
+        "prefix_step_idx",
+        "context_chars_est",
+        "legacy_context_tokens_chars4_est",
+        "context_call_input_tokens_est",
+        "future_context_call_input_tokens_saved_if_stop_est",
+        "baseline_input_tokens_est",
+        "external_input_tokens_cum",
+        "generated_output_tokens_cum",
+        "transcript_total_tokens_cum",
+        "baseline_external_input_tokens_est",
+        "baseline_output_tokens_est",
+        "baseline_transcript_total_tokens_est",
+        "token_count_method",
+        "tokenizer_family",
+        "tokenizer_backend",
+        "tokenizer_name",
+    ]
+    return df[keep_cols].copy()
+
+
+def _build_source_token_rows(
+    prefix_table: Path,
+    traj_ids: set[str],
+    *,
+    dataset_key: str,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    try:
+        import pyarrow.parquet as pq
+    except Exception as exc:  # pragma: no cover - dependency guard
+        raise RuntimeError("pyarrow is required for streaming tokenizer counts") from exc
+
+    helpers = _load_tokenizer_helpers()
+    helpers._configure_tokenizer_cache(TOKENIZER_CACHE_ROOT)
+    registry = helpers._TokenizerRegistry(local_files_only=TOKENIZER_LOCAL_FILES_ONLY)
+    wanted = set(str(x) for x in traj_ids)
+    cols = [
+        "traj_id",
+        "model_id",
+        "prefix_step_idx",
+        "task_prompt_chars",
+        "prefix_action_chars",
+        "prefix_feedback_chars",
+        "prefix_thought_chars",
+        "prefix_assistant_content_chars",
+        "task_prompt_text",
+        "last_action_text",
+        "last_feedback_text",
+        "last_thought_text",
+        "last_assistant_content_text",
+    ]
+    parquet = pq.ParquetFile(prefix_table)
+    parts: list[pd.DataFrame] = []
+    task_cache: dict[tuple[str, str], tuple[int, int]] = {}
+    newline_token_cache: dict[str, int] = {}
+    scanned_rows = 0
+    matched_rows = 0
+    encoded_rows = 0
+    next_progress_rows = max(1, TOKEN_PROGRESS_EVERY_ROWS)
+
+    print(
+        "[tokenizer-progress] start "
+        f"dataset={dataset_key} selected_trajectories={len(wanted)} "
+        f"parquet_rows={parquet.metadata.num_rows}",
+        flush=True,
+    )
+    for batch_idx, batch in enumerate(
+        parquet.iter_batches(batch_size=max(1, TOKEN_PARQUET_BATCH_SIZE), columns=cols),
+        start=1,
+    ):
+        scanned_rows += int(batch.num_rows)
+        part = batch.to_pandas()
+        part["traj_id"] = part["traj_id"].astype(str)
+        part = part[part["traj_id"].isin(wanted)].copy()
+        if part.empty:
+            if TOKEN_PROGRESS_EVERY_BATCHES > 0 and batch_idx % TOKEN_PROGRESS_EVERY_BATCHES == 0:
+                print(
+                    "[tokenizer-progress] scan "
+                    f"dataset={dataset_key} batches={batch_idx} parquet_rows={scanned_rows} "
+                    f"matched_rows={matched_rows} encoded_rows={encoded_rows}",
+                    flush=True,
+                )
+            continue
+        matched_rows += int(len(part))
+        out_parts: list[pd.DataFrame] = []
+        for model_id, group in part.groupby("model_id", sort=False):
+            model_id = str(model_id)
+            counter = registry.get(model_id)
+            if model_id not in newline_token_cache:
+                newline_counts, _ = counter.count_many(
+                    ["\n"],
+                    max_direct_chars=helpers.DEFAULT_MAX_DIRECT_TOKENIZE_CHARS,
+                    exact_chunk_chars=helpers.DEFAULT_EXACT_CHUNK_TOKENIZE_CHARS,
+                    sample_long_tokenize_chars=helpers.DEFAULT_SAMPLE_LONG_TOKENIZE_CHARS,
+                    sample_chars=helpers.DEFAULT_SAMPLE_CHARS,
+                )
+                newline_token_cache[model_id] = int(newline_counts[0])
+
+            group = group.reset_index(drop=True)
+            n_rows = int(len(group))
+            task_tokens = np.zeros(n_rows, dtype="int64")
+            task_method_severity = np.zeros(n_rows, dtype="int64")
+            step_method_severity = np.zeros(n_rows, dtype="int64")
+            component_tokens = {
+                kind: np.zeros(n_rows, dtype="int64")
+                for kind in ["action", "feedback", "thought", "assistant"]
+            }
+            component_nonempty = {
+                kind: np.zeros(n_rows, dtype="int64")
+                for kind in ["action", "feedback", "thought", "assistant"]
+            }
+
+            texts: list[str] = []
+            jobs: list[tuple[str, int | tuple[str, str]]] = []
+            pending_task_rows: dict[tuple[str, str], list[int]] = {}
+            for row_idx, row in enumerate(group.itertuples(index=False)):
+                traj_id = str(getattr(row, "traj_id"))
+                task_key = (model_id, traj_id)
+                cached_task = task_cache.get(task_key)
+                if cached_task is not None:
+                    task_tokens[row_idx] = cached_task[0]
+                    task_method_severity[row_idx] = cached_task[1]
+                else:
+                    if task_key not in pending_task_rows:
+                        pending_task_rows[task_key] = []
+                        texts.append(_safe_string(getattr(row, "task_prompt_text")))
+                        jobs.append(("task", task_key))
+                    pending_task_rows[task_key].append(row_idx)
+
+                for kind, col in [
+                    ("action", "last_action_text"),
+                    ("feedback", "last_feedback_text"),
+                    ("thought", "last_thought_text"),
+                    ("assistant", "last_assistant_content_text"),
+                ]:
+                    text = _safe_string(getattr(row, col))
+                    if not text:
+                        continue
+                    component_nonempty[kind][row_idx] = 1
+                    texts.append(text)
+                    jobs.append((kind, row_idx))
+
+            counts: list[int] = []
+            methods: list[str] = []
+            for start in range(0, len(texts), max(1, TOKEN_ENCODE_BATCH_SIZE)):
+                batch_counts, batch_methods = counter.count_many(
+                    texts[start : start + max(1, TOKEN_ENCODE_BATCH_SIZE)],
+                    max_direct_chars=helpers.DEFAULT_MAX_DIRECT_TOKENIZE_CHARS,
+                    exact_chunk_chars=helpers.DEFAULT_EXACT_CHUNK_TOKENIZE_CHARS,
+                    sample_long_tokenize_chars=helpers.DEFAULT_SAMPLE_LONG_TOKENIZE_CHARS,
+                    sample_chars=helpers.DEFAULT_SAMPLE_CHARS,
+                )
+                counts.extend(batch_counts)
+                methods.extend(batch_methods)
+
+            for (kind, target), count, method in zip(jobs, counts, methods):
+                severity = helpers._component_method_severity(method)
+                if kind == "task":
+                    task_key = target
+                    assert isinstance(task_key, tuple)
+                    task_cache[task_key] = (int(count), int(severity))
+                    for row_idx in pending_task_rows[task_key]:
+                        task_tokens[row_idx] = int(count)
+                        task_method_severity[row_idx] = int(severity)
+                else:
+                    row_idx = int(target)
+                    component_tokens[kind][row_idx] = int(count)
+                    step_method_severity[row_idx] = max(
+                        int(step_method_severity[row_idx]), int(severity)
+                    )
+
+            sub = group[["traj_id", "model_id", "prefix_step_idx"]].copy()
+            sub["prefix_step_idx"] = pd.to_numeric(
+                sub["prefix_step_idx"], errors="raise"
+            ).astype("int64")
+            for col in [
+                "task_prompt_chars",
+                "prefix_action_chars",
+                "prefix_feedback_chars",
+                "prefix_thought_chars",
+                "prefix_assistant_content_chars",
+            ]:
+                sub[col] = pd.to_numeric(group[col], errors="coerce").fillna(0).astype("int64")
+            sub["context_chars_est"] = (
+                sub["task_prompt_chars"]
+                + sub["prefix_action_chars"]
+                + sub["prefix_feedback_chars"]
+                + sub["prefix_assistant_content_chars"]
+            )
+            sub["legacy_context_tokens_chars4_est"] = np.ceil(
+                sub["context_chars_est"] / LEGACY_CHAR_TOKEN_RATIO
+            ).astype("int64")
+            sub["task_prompt_chars_component"] = sub["task_prompt_chars"]
+            sub["task_prompt_tokens_component"] = task_tokens
+            sub["task_method_severity_component"] = task_method_severity
+            sub["step_method_severity_component"] = step_method_severity
+            sub["newline_tokens_component"] = int(newline_token_cache[model_id])
+            for kind in ["action", "feedback", "thought", "assistant"]:
+                sub[f"{kind}_step_tokens_component"] = component_tokens[kind]
+                sub[f"{kind}_step_nonempty_component"] = component_nonempty[kind]
+            sub["tokenizer_family"] = counter.spec.family
+            sub["tokenizer_backend"] = counter.spec.backend
+            sub["tokenizer_name"] = counter.spec.name
+            out_parts.append(sub)
+
+        encoded_part = pd.concat(out_parts, ignore_index=True)
+        parts.append(encoded_part)
+        encoded_rows += int(len(part))
+        if TOKEN_PROGRESS_EVERY_ROWS > 0 and encoded_rows >= next_progress_rows:
+            print(
+                "[tokenizer-progress] encode "
+                f"dataset={dataset_key} batches={batch_idx} parquet_rows={scanned_rows} "
+                f"matched_rows={matched_rows} encoded_rows={encoded_rows}",
+                flush=True,
+            )
+            while encoded_rows >= next_progress_rows:
+                next_progress_rows += max(1, TOKEN_PROGRESS_EVERY_ROWS)
+        if TOKEN_PROGRESS_EVERY_BATCHES > 0 and batch_idx % TOKEN_PROGRESS_EVERY_BATCHES == 0:
+            print(
+                "[tokenizer-progress] scan "
+                f"dataset={dataset_key} batches={batch_idx} parquet_rows={scanned_rows} "
+                f"matched_rows={matched_rows} encoded_rows={encoded_rows}",
+                flush=True,
+            )
+
+    if not parts:
+        raise ValueError(f"No token rows matched selected trajectories for {dataset_key}.")
+    raw = pd.concat(parts, ignore_index=True)
+    raw["traj_id"] = raw["traj_id"].astype(str)
+    raw["prefix_step_idx"] = pd.to_numeric(raw["prefix_step_idx"], errors="raise").astype("int64")
+    raw = raw.drop_duplicates(["traj_id", "prefix_step_idx"], keep="last")
+    missing = wanted - set(raw["traj_id"].astype(str))
+    if missing:
+        sample = ", ".join(sorted(missing)[:5])
+        raise ValueError(f"{dataset_key}: missing token rows for {len(missing)} trajectories, e.g. {sample}")
+    token_rows = _add_prefix_source_token_features(raw, helpers)
+    manifest = registry.manifest()
+    if not manifest.empty:
+        manifest.insert(0, "dataset_key", dataset_key)
+        manifest["note"] = (
+            manifest["note"].astype(str)
+            + " Component-sum prefix/source counts; tokenizer boundary merges across components are not modeled exactly."
+        )
+    print(
+        "[tokenizer-progress] done "
+        f"dataset={dataset_key} matched_rows={matched_rows} encoded_rows={encoded_rows}",
+        flush=True,
+    )
+    return token_rows, manifest
+
+
+def _load_or_build_source_token_rows(
+    prefix_table: Path,
+    traj_ids: set[str],
+    *,
+    dataset_key: str,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    cache_path = _token_prefix_cache_path(dataset_key)
+    meta = _source_token_cache_meta(prefix_table, traj_ids)
+    cached = _load_source_token_cache(cache_path, meta, traj_ids)
+    if cached is not None:
+        return cached
+    token_rows, manifest = _build_source_token_rows(prefix_table, traj_ids, dataset_key=dataset_key)
+    _write_source_token_cache(cache_path, token_rows, manifest, meta)
+    return token_rows, manifest
+
+
 def _component_token_savings(
     prefix_table: Path,
     decisions: pd.DataFrame,
     *,
     dataset_key: str,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     if prefix_table is None or not prefix_table.exists():
-        return pd.DataFrame(), pd.DataFrame()
-    cols = [
-        "traj_id",
-        "prefix_step_idx",
-        "task_prompt_chars",
-        "prefix_feedback_chars",
-        "prefix_action_chars",
-        "prefix_thought_chars",
-        "prefix_assistant_content_chars",
-    ]
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
     wanted = decisions.loc[decisions["dataset_key"] == dataset_key, "traj_id"].astype(str)
     wanted_set = set(wanted)
     if not wanted_set:
-        return pd.DataFrame(), pd.DataFrame()
-    pf = pd.read_parquet(prefix_table, columns=cols)
-    pf["traj_id"] = pf["traj_id"].astype(str)
-    pf = pf[pf["traj_id"].isin(wanted_set)].copy()
-    if pf.empty:
-        return pd.DataFrame(), pd.DataFrame()
-    for col in cols[2:]:
-        pf[col] = pd.to_numeric(pf[col], errors="coerce").fillna(0.0)
-    # API input/context-call tokens: each future model call resends the prefix
-    # context. Match the existing SWE audit by using task/action/feedback/
-    # assistant content and excluding thought text from the resent context.
-    pf["context_call_input_chars"] = (
-        pf["task_prompt_chars"]
-        + pf["prefix_action_chars"]
-        + pf["prefix_feedback_chars"]
-        + pf["prefix_assistant_content_chars"]
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+    token_rows, manifest = _load_or_build_source_token_rows(
+        prefix_table,
+        wanted_set,
+        dataset_key=dataset_key,
     )
-    # Source split of the unique trajectory transcript. This answers how much
-    # of the truncated transcript was external input/feedback vs model output.
-    pf["external_input_chars_cum"] = pf["task_prompt_chars"] + pf["prefix_feedback_chars"]
-    pf["generated_output_chars_cum"] = (
-        pf["prefix_action_chars"]
-        + pf["prefix_thought_chars"]
-        + pf["prefix_assistant_content_chars"]
-    )
-    pf["transcript_total_chars_cum"] = (
-        pf["external_input_chars_cum"] + pf["generated_output_chars_cum"]
-    )
-    pf["context_call_input_tokens_est"] = np.ceil(
-        pf["context_call_input_chars"] / CHAR_TOKEN_RATIO
-    )
-    pf = pf.sort_values(["traj_id", "prefix_step_idx"]).reset_index(drop=True)
-    pf["future_context_call_input_tokens_saved_if_stop_est"] = (
-        pf.groupby("traj_id", sort=False)["context_call_input_tokens_est"]
-        .transform(lambda s: s.iloc[::-1].cumsum().iloc[::-1] - s)
-        .astype("float64")
-    )
-    context_call_total = (
-        pf.groupby("traj_id", sort=False)["context_call_input_tokens_est"]
-        .sum()
-        .rename("baseline_input_tokens_est")
-        .reset_index()
-    )
-    final_transcript = (
-        pf.groupby("traj_id", sort=False)
-        .tail(1)[
-            [
-                "traj_id",
-                "external_input_chars_cum",
-                "generated_output_chars_cum",
-                "transcript_total_chars_cum",
-            ]
-        ]
-        .rename(
-            columns={
-                "external_input_chars_cum": "baseline_external_input_chars",
-                "generated_output_chars_cum": "baseline_output_chars",
-                "transcript_total_chars_cum": "baseline_transcript_total_chars",
-            }
-        )
-    )
-    dec = decisions[decisions["dataset_key"] == dataset_key].copy()
-    dec["traj_id"] = dec["traj_id"].astype(str)
-    dec["decision_step_for_join"] = dec["decision_step"].clip(lower=0).astype(int)
-    spend = pf.rename(columns={"prefix_step_idx": "decision_step_for_join"})[
+    if token_rows.empty:
+        return pd.DataFrame(), pd.DataFrame(), manifest, pd.DataFrame()
+
+    token_rows = token_rows.copy()
+    token_rows["dataset_key"] = dataset_key
+    token_rows["traj_id"] = token_rows["traj_id"].astype(str)
+    token_rows["prefix_step_idx"] = pd.to_numeric(
+        token_rows["prefix_step_idx"], errors="raise"
+    ).astype("int64")
+
+    baseline_cols = [
+        "traj_id",
+        "baseline_input_tokens_est",
+        "baseline_external_input_tokens_est",
+        "baseline_output_tokens_est",
+        "baseline_transcript_total_tokens_est",
+    ]
+    baseline = token_rows[baseline_cols].drop_duplicates("traj_id", keep="last")
+    spend = token_rows.rename(columns={"prefix_step_idx": "decision_step_for_join"})[
         [
             "traj_id",
             "decision_step_for_join",
-            "external_input_chars_cum",
-            "generated_output_chars_cum",
-            "transcript_total_chars_cum",
+            "external_input_tokens_cum",
+            "generated_output_tokens_cum",
+            "transcript_total_tokens_cum",
             "future_context_call_input_tokens_saved_if_stop_est",
         ]
     ]
-    dec = (
-        dec.merge(context_call_total, on="traj_id", how="left")
-        .merge(final_transcript, on="traj_id", how="left")
-        .merge(spend, on=["traj_id", "decision_step_for_join"], how="left")
+    dec = decisions[decisions["dataset_key"] == dataset_key].copy()
+    dec["traj_id"] = dec["traj_id"].astype(str)
+    dec["decision_step_for_join"] = (
+        pd.to_numeric(dec["decision_step"], errors="coerce").fillna(-1).clip(lower=0).astype("int64")
     )
-    dec["external_input_chars_cum"] = np.where(
-        dec["decided"], dec["external_input_chars_cum"], dec["baseline_external_input_chars"]
+    dec = dec.merge(baseline, on="traj_id", how="left").merge(
+        spend,
+        on=["traj_id", "decision_step_for_join"],
+        how="left",
     )
-    dec["generated_output_chars_cum"] = np.where(
-        dec["decided"], dec["generated_output_chars_cum"], dec["baseline_output_chars"]
+    missing = dec[dec["baseline_input_tokens_est"].isna()]["traj_id"].drop_duplicates()
+    if not missing.empty:
+        sample = ", ".join(missing.astype(str).head(5))
+        raise ValueError(
+            f"{dataset_key}: token rows missing for {len(missing)} decision trajectories, e.g. {sample}"
+        )
+
+    decided = dec["decided"].fillna(False).astype(bool)
+    dec["external_input_tokens_cum"] = np.where(
+        decided,
+        dec["external_input_tokens_cum"],
+        dec["baseline_external_input_tokens_est"],
     )
-    dec["transcript_total_chars_cum"] = np.where(
-        dec["decided"], dec["transcript_total_chars_cum"], dec["baseline_transcript_total_chars"]
+    dec["generated_output_tokens_cum"] = np.where(
+        decided,
+        dec["generated_output_tokens_cum"],
+        dec["baseline_output_tokens_est"],
+    )
+    dec["transcript_total_tokens_cum"] = np.where(
+        decided,
+        dec["transcript_total_tokens_cum"],
+        dec["baseline_transcript_total_tokens_est"],
     )
     dec["saved_input_tokens_est"] = np.where(
-        dec["decided"], dec["future_context_call_input_tokens_saved_if_stop_est"], 0.0
-    )
-    dec["saved_external_input_chars"] = np.where(
-        dec["decided"],
-        dec["baseline_external_input_chars"] - dec["external_input_chars_cum"],
+        decided,
+        dec["future_context_call_input_tokens_saved_if_stop_est"].fillna(0),
         0.0,
     )
-    dec["saved_output_chars"] = np.where(
-        dec["decided"],
-        dec["baseline_output_chars"] - dec["generated_output_chars_cum"],
+    dec["saved_external_input_tokens_est"] = np.where(
+        decided,
+        dec["baseline_external_input_tokens_est"] - dec["external_input_tokens_cum"],
         0.0,
     )
-    dec["saved_transcript_total_chars"] = np.where(
-        dec["decided"],
-        dec["baseline_transcript_total_chars"] - dec["transcript_total_chars_cum"],
+    dec["saved_output_tokens_est"] = np.where(
+        decided,
+        dec["baseline_output_tokens_est"] - dec["generated_output_tokens_cum"],
         0.0,
     )
-    for col in ["baseline_external_input", "baseline_output", "baseline_transcript_total"]:
-        dec[f"{col}_tokens_est"] = np.ceil(dec[f"{col}_chars"] / CHAR_TOKEN_RATIO)
-    for col in ["saved_external_input", "saved_output", "saved_transcript_total"]:
-        dec[f"{col}_tokens_est"] = np.ceil(dec[f"{col}_chars"] / CHAR_TOKEN_RATIO)
+    dec["saved_transcript_total_tokens_est"] = np.where(
+        decided,
+        dec["baseline_transcript_total_tokens_est"] - dec["transcript_total_tokens_cum"],
+        0.0,
+    )
+    for col in [
+        "saved_input_tokens_est",
+        "saved_external_input_tokens_est",
+        "saved_output_tokens_est",
+        "saved_transcript_total_tokens_est",
+    ]:
+        dec[col] = dec[col].clip(lower=0)
     dec["saved_total_api_tokens_est"] = (
         dec["saved_input_tokens_est"] + dec["saved_output_tokens_est"]
     )
@@ -674,7 +1154,7 @@ def _component_token_savings(
             decided_trajectories=("decided_trajectories", "sum"),
         )
     )
-    summary["token_method"] = "context_call_input_chars4_plus_generated_output_chars4"
+    summary["token_method"] = TOKEN_METHOD
     summary["input_token_save_pct_est"] = (
         summary["saved_input_tokens_est"] * 100.0 / summary["baseline_input_tokens_est"]
     )
@@ -713,21 +1193,58 @@ def _component_token_savings(
         * 100.0
         / by_agent["baseline_transcript_total_tokens_est"]
     )
-    by_agent["token_method"] = "context_call_input_chars4_plus_generated_output_chars4"
-    return summary, by_agent
+    by_agent["token_method"] = TOKEN_METHOD
+
+    method_summary = (
+        token_rows.groupby(
+            [
+                "dataset_key",
+                "model_id",
+                "token_count_method",
+                "tokenizer_family",
+                "tokenizer_backend",
+                "tokenizer_name",
+            ],
+            dropna=False,
+            as_index=False,
+        )
+        .agg(
+            prefix_rows=("traj_id", "size"),
+            trajectories=("traj_id", "nunique"),
+            context_call_input_tokens_est=("context_call_input_tokens_est", "sum"),
+        )
+        .sort_values(["dataset_key", "model_id", "token_count_method"])
+        .reset_index(drop=True)
+    )
+    method_summary["token_method"] = TOKEN_METHOD
+    method_summary["prefix_table"] = str(prefix_table)
+    return summary, by_agent, manifest, method_summary
 
 
-def _build_token_tables(decisions_095: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def _build_token_tables(
+    decisions_095: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     summaries = []
     agents = []
+    manifests = []
+    method_summaries = []
     for config in BENCHES:
-        summary, by_agent = _component_token_savings(
+        summary, by_agent, manifest, method_summary = _component_token_savings(
             config.prefix_table, decisions_095, dataset_key=config.dataset_key
         )
         if not summary.empty:
             summaries.append(summary)
             agents.append(by_agent)
-    return pd.concat(summaries, ignore_index=True), pd.concat(agents, ignore_index=True)
+        if not manifest.empty:
+            manifests.append(manifest)
+        if not method_summary.empty:
+            method_summaries.append(method_summary)
+    return (
+        pd.concat(summaries, ignore_index=True) if summaries else pd.DataFrame(),
+        pd.concat(agents, ignore_index=True) if agents else pd.DataFrame(),
+        pd.concat(manifests, ignore_index=True) if manifests else pd.DataFrame(),
+        pd.concat(method_summaries, ignore_index=True) if method_summaries else pd.DataFrame(),
+    )
 
 
 def _build_rq1(
@@ -827,6 +1344,70 @@ def _build_threshold_compact(threshold_agg: pd.DataFrame) -> pd.DataFrame:
     out = out[cols].replace([np.inf, -np.inf], np.nan)
     out["_bench_order"] = out["benchmark"].map(bench_order)
     return out.sort_values(["_bench_order", "threshold"]).drop(columns="_bench_order")
+
+
+def _prefix_table_counts(config: BenchConfig, decisions_all: pd.DataFrame) -> dict[str, Any]:
+    if config.prefix_table is None or not config.prefix_table.exists():
+        return {
+            "benchmark": config.benchmark,
+            "dataset_key": config.dataset_key,
+            "prefix_rows": 0,
+            "collected_trajectories": 0,
+            "collected_agents": 0,
+            "collected_instances": 0,
+            "evaluated_trajectories_locked095": 0,
+            "evaluated_agents_locked095": 0,
+        }
+    try:
+        import pyarrow.parquet as pq
+    except Exception as exc:  # pragma: no cover - dependency guard
+        raise RuntimeError("pyarrow is required to count prefix parquet files") from exc
+
+    parquet = pq.ParquetFile(config.prefix_table)
+    available = set(parquet.schema.names)
+    cols = [col for col in ["traj_id", "model_id", "instance_id"] if col in available]
+    traj_ids: set[str] = set()
+    model_ids: set[str] = set()
+    instance_ids: set[str] = set()
+    for batch in parquet.iter_batches(batch_size=max(1, TOKEN_PARQUET_BATCH_SIZE), columns=cols):
+        part = batch.to_pandas()
+        if "traj_id" in part.columns:
+            traj_ids.update(part["traj_id"].dropna().astype(str).unique())
+        if "model_id" in part.columns:
+            model_ids.update(part["model_id"].dropna().astype(str).unique())
+        if "instance_id" in part.columns:
+            instance_ids.update(part["instance_id"].dropna().astype(str).unique())
+
+    locked = decisions_all[
+        (decisions_all["dataset_key"].eq(config.dataset_key))
+        & np.isclose(decisions_all["threshold"], 0.95)
+    ]
+    return {
+        "benchmark": config.benchmark,
+        "dataset_key": config.dataset_key,
+        "prefix_rows": int(parquet.metadata.num_rows),
+        "collected_trajectories": int(len(traj_ids)),
+        "collected_agents": int(len(model_ids)),
+        "collected_instances": int(len(instance_ids)),
+        "evaluated_trajectories_locked095": int(locked["traj_id"].astype(str).nunique()),
+        "evaluated_agents_locked095": int(locked["agent"].astype(str).nunique()),
+    }
+
+
+def _build_trajectory_prefix_counts(decisions_all: pd.DataFrame) -> pd.DataFrame:
+    rows = [_prefix_table_counts(config, decisions_all) for config in BENCHES]
+    out = pd.DataFrame(rows)
+    total = {
+        "benchmark": "All benchmarks",
+        "dataset_key": "ALL",
+        "prefix_rows": int(out["prefix_rows"].sum()),
+        "collected_trajectories": int(out["collected_trajectories"].sum()),
+        "collected_agents": int(out["collected_agents"].sum()),
+        "collected_instances": int(out["collected_instances"].sum()),
+        "evaluated_trajectories_locked095": int(out["evaluated_trajectories_locked095"].sum()),
+        "evaluated_agents_locked095": int(out["evaluated_agents_locked095"].sum()),
+    }
+    return pd.concat([out, pd.DataFrame([total])], ignore_index=True)
 
 
 def _build_rq2(
@@ -1120,7 +1701,7 @@ def _write_latex(
     lines = [
         r"\begin{table*}[t]",
         r"\centering",
-        r"\caption{RQ1: EarlyEval's decision quality and resource savings on each benchmark at the fixed calibrated operating point ($s=f=0.95$). Context-token savings are API-style input/context-call savings for skipped future calls; output-token savings are skipped model-generated trajectory tokens. Both are estimated with chars/4.}",
+        r"\caption{RQ1: EarlyEval's decision quality and resource savings on each benchmark at the fixed calibrated operating point ($s=f=0.95$). Context-token savings are API-style input/context-call savings for skipped future calls; output-token savings are skipped model-generated trajectory tokens. Token counts use model-specific local tokenizers when available and documented close-family proxy tokenizers otherwise.}",
         r"\label{tab:rq1}",
         r"\small",
         r"\setlength{\tabcolsep}{4.5pt}",
@@ -1270,6 +1851,7 @@ def _write_readme(
     threshold_agg: pd.DataFrame,
     rq2_summary: pd.DataFrame,
     rq3: pd.DataFrame,
+    trajectory_prefix_counts: pd.DataFrame,
 ) -> None:
     txt = f"""# RQ Tables Reorganization Bundle
 
@@ -1289,10 +1871,10 @@ completed held-out prediction parquet files; no models are trained here.
 - `threshold_sweep_all_benchmarks.csv` uses the same held-out fold set for
   each benchmark and replays fixed symmetric thresholds.
 - Main token split uses
-  `context_call_input_chars4_plus_generated_output_chars4`: saved input tokens
-  are API-style context-call tokens for skipped future model calls; saved output
-  tokens are skipped model-generated trajectory tokens. Both use `ceil(chars/4)`
-  so the denominator is comparable across SWE/TB/Toolathlon.
+  `{TOKEN_METHOD}`: saved input tokens are API-style context-call tokens for
+  skipped future model calls; saved output tokens are skipped model-generated
+  trajectory tokens. Counts use model-specific local tokenizers when available
+  and documented close-family proxy tokenizers otherwise.
 - The source-split columns (`saved_external_input_tokens_est`,
   `saved_output_tokens_est`) also show how much of the truncated unique
   trajectory came from external/task/tool feedback vs model-generated text.
@@ -1323,14 +1905,16 @@ completed held-out prediction parquet files; no models are trained here.
   token savings.
 - `token_source_split_summary.csv` and `token_source_split_by_agent.csv`:
   backward-compatible copies with the same columns.
+- `trajectory_prefix_counts.csv`: collected trajectory and decomposed prefix
+  counts for SWE-bench Verified, TerminalBench, and Toolathlon.
 - `model_price_template.csv`: price table to fill for Saved$.
 - `tables_latex_draft.tex`: LaTeX draft for the RQ1/RQ2/RQ3 tables.
-- `supporting/`: per-fold RQ3 replay and copied SWE model-tokenizer threshold
-  table for comparison.
-
-Note: the copied SWE model-tokenizer audit reports 32.72% context-call token
-saving at threshold 0.95. The new three-benchmark main table reports 32.89% for
-SWE because it uses one uniform chars/4 estimator across all benchmarks.
+- `supporting/tokenizer_manifest_all_benchmarks.csv`: exact tokenizer/proxy
+  mapping used for each model id.
+- `supporting/token_count_method_summary_all_benchmarks.csv`: count method
+  summary, including direct/chunked/sampled long-string handling.
+- `supporting/`: per-fold RQ3 replay, tokenizer audit files, and supporting
+  checks.
 
 ## Quick headline snapshot
 
@@ -1350,6 +1934,12 @@ RQ2 summary:
 
 ```text
 {_round_df(rq2_summary, 4).to_string(index=False)}
+```
+
+Collected trajectory/prefix counts:
+
+```text
+{_round_df(trajectory_prefix_counts, 0).to_string(index=False)}
 ```
 
 RQ3 locked 0.95 rows:
@@ -1375,9 +1965,12 @@ def main() -> None:
     SUPPORTING.mkdir(parents=True, exist_ok=True)
 
     threshold_agg, threshold_per_agent, decisions_095, ranked_by_bench = _build_decisions_all()
-    token_summary, token_agent = _build_token_tables(decisions_095)
+    token_summary, token_agent, tokenizer_manifest, token_method_summary = _build_token_tables(
+        decisions_095
+    )
     threshold_agg = _attach_token_summary(threshold_agg, token_summary)
     threshold_compact = _build_threshold_compact(threshold_agg)
+    trajectory_prefix_counts = _build_trajectory_prefix_counts(decisions_095)
     rq1 = _build_rq1(threshold_agg, token_summary)
     rq2_top10, rq2_per_agent_all, rq2_summary = _build_rq2(ranked_by_bench, token_agent)
     rq3 = _build_rq3()
@@ -1389,6 +1982,9 @@ def main() -> None:
     decisions_095 = _round_df(decisions_095)
     token_summary = _round_df(token_summary)
     token_agent = _round_df(token_agent)
+    tokenizer_manifest = _round_df(tokenizer_manifest)
+    token_method_summary = _round_df(token_method_summary)
+    trajectory_prefix_counts = _round_df(trajectory_prefix_counts)
     rq1 = _round_df(rq1)
     rq2_top10 = _round_df(rq2_top10)
     rq2_per_agent_all = _round_df(rq2_per_agent_all)
@@ -1404,6 +2000,16 @@ def main() -> None:
     token_agent.to_csv(OUT / "token_input_output_by_agent.csv", index=False)
     token_summary.to_csv(OUT / "token_source_split_summary.csv", index=False)
     token_agent.to_csv(OUT / "token_source_split_by_agent.csv", index=False)
+    tokenizer_manifest.to_csv(SUPPORTING / "tokenizer_manifest_all_benchmarks.csv", index=False)
+    token_method_summary.to_csv(
+        SUPPORTING / "token_count_method_summary_all_benchmarks.csv",
+        index=False,
+    )
+    trajectory_prefix_counts.to_csv(OUT / "trajectory_prefix_counts.csv", index=False)
+    trajectory_prefix_counts.to_csv(
+        SUPPORTING / "trajectory_prefix_counts.csv",
+        index=False,
+    )
     rq1.to_csv(OUT / "rq1_main.csv", index=False)
     rq2_top10.to_csv(OUT / "rq2_top10.csv", index=False)
     rq2_per_agent_all.to_csv(OUT / "rq2_per_agent_all.csv", index=False)
@@ -1423,7 +2029,7 @@ def main() -> None:
         )
 
     _write_latex(rq1, rq2_top10, rq2_summary, rq3)
-    _write_readme(rq1, threshold_agg, rq2_summary, rq3)
+    _write_readme(rq1, threshold_agg, rq2_summary, rq3, trajectory_prefix_counts)
 
     manifest_rows = []
     for p in sorted(OUT.rglob("*")):

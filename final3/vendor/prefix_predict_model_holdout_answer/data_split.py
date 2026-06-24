@@ -1,8 +1,4 @@
-"""
-数据切分模块。
-
-按 group_id 分组切分，并附加 instance_id 防泄漏校验。
-"""
+'Public-release English note.'
 from __future__ import annotations
 
 import numpy as np
@@ -25,16 +21,7 @@ def split_by_group(
     *,
     check_instance_leak: bool = True,
 ) -> tuple[pd.Index, pd.Index, pd.Index]:
-    """
-    按 group_col 分组做 train/valid/test 切分。
-
-    check_instance_leak:
-        True 时校验 instance_id 不跨 train/valid/test（同一题目只应出现在一侧）。
-        多轨迹按 traj（group_id）随机划分且允许同题跨集时，应设为 False。
-
-    Returns:
-        (train_idx, valid_idx, test_idx) — 都是 DataFrame 的 index
-    """
+    'Public-release English note.'
     train_ratio = train_ratio or config.TRAIN_RATIO
     valid_ratio = valid_ratio or config.VALID_RATIO
     test_ratio = test_ratio or config.TEST_RATIO
@@ -43,28 +30,28 @@ def split_by_group(
     groups = df[group_col].values
     n_unique_groups = df[group_col].nunique()
 
-    # 仅 1 个 group 时无法做无泄漏划分；供单轨迹烟测（train/valid/test 相同，指标不能当泛化）
+    # Public-release English note.
     if n_unique_groups < 2:
         logger.warning(
-            f"仅有 {n_unique_groups} 个独立 {group_col}，启用烟测切分："
-            "train/valid/test 使用相同索引（不做泄漏校验）。"
+            'Public-release English note.'
+            'Public-release English note.'
         )
         all_idx = df.index.copy()
         return all_idx, all_idx, all_idx
 
-    # 第一步：分出 test
+    # Public-release English note.
     test_size = test_ratio
     gss1 = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=seed)
     trainval_idx, test_idx = next(gss1.split(df, groups=groups))
 
-    # 第二步：从 trainval 中分出 valid
+    # Public-release English note.
     trainval_df = df.iloc[trainval_idx]
     trainval_groups = trainval_df[group_col].values
     n_tv_rows = len(trainval_df)
     n_tv_groups = trainval_df[group_col].nunique()
 
-    # 第二步需要 trainval 内至少 2 个独立 group；否则 sklearn 会报
-    # "resulting train set will be empty"（常见于 --max-trajectories 很小或按 instance 切时 test 抽走大部分题）。
+    # Public-release English note.
+    # Public-release English note.
     valid_size_adj = valid_ratio / (train_ratio + valid_ratio)
     use_fallback_tv = n_tv_groups < 2 or n_tv_rows < 2
 
@@ -84,7 +71,7 @@ def split_by_group(
     if use_fallback_tv:
         logger.warning(
             f"Train/valid split fallback: trainval has {n_tv_rows} rows, {n_tv_groups} {group_col} groups. "
-            "Using all trainval as train and duplicating it as valid (LR 调参会偏乐观；仅小数据/烟测)."
+            'Public-release English note.'
         )
         train_sub_idx = np.arange(n_tv_rows, dtype=int)
         valid_sub_idx = train_sub_idx.copy()
@@ -93,7 +80,7 @@ def split_by_group(
     valid_final = df.index[trainval_idx[valid_sub_idx]]
     test_final = df.index[test_idx]
 
-    # ── 验证 ──
+    # Public-release English note.
     if use_fallback_tv:
         logger.warning(
             "Skipping group/instance leakage checks (train/valid overlap allowed in mini-data fallback)."
@@ -108,12 +95,12 @@ def split_by_group(
                 "(intended for multi-trajectory-per-instance + split by trajectory)."
             )
 
-    logger.info(f"Split sizes — Train: {len(train_final)}, Valid: {len(valid_final)}, Test: {len(test_final)}")
-    logger.info(f"Split ratios — Train: {len(train_final)/len(df):.3f}, "
+    logger.info(f"Split sizes - Train: {len(train_final)}, Valid: {len(valid_final)}, Test: {len(test_final)}")
+    logger.info(f"Split ratios - Train: {len(train_final)/len(df):.3f}, "
                 f"Valid: {len(valid_final)/len(df):.3f}, "
                 f"Test: {len(test_final)/len(df):.3f}")
 
-    # group 级别统计
+    # Public-release English note.
     for name, idx in [("Train", train_final), ("Valid", valid_final), ("Test", test_final)]:
         sub = df.loc[idx]
         n_groups = sub[group_col].nunique()
@@ -125,7 +112,7 @@ def split_by_group(
 
 
 def _verify_no_group_leak(df, train_idx, valid_idx, test_idx, group_col):
-    """验证三个集合之间没有 group 泄漏。"""
+    'Public-release English note.'
     if (
         len(train_idx) == len(valid_idx) == len(test_idx)
         and set(train_idx) == set(valid_idx) == set(test_idx)
@@ -146,14 +133,11 @@ def _verify_no_group_leak(df, train_idx, valid_idx, test_idx, group_col):
         logger.error(msg)
         raise ValueError(msg)
 
-    logger.info("Group leakage check PASSED — no overlap between splits")
+    logger.info("Group leakage check PASSED - no overlap between splits")
 
 
 def _verify_no_instance_leak(df, train_idx, valid_idx, test_idx):
-    """
-    额外验证：instance_id 不跨集合。
-    该检查用于防止同一任务实例同时出现在 train/valid/test 中。
-    """
+    'Public-release English note.'
     if "instance_id" not in df.columns:
         logger.warning("instance_id column not found; skip instance leakage check")
         return
@@ -180,4 +164,4 @@ def _verify_no_instance_leak(df, train_idx, valid_idx, test_idx):
         logger.error(msg)
         raise ValueError(msg)
 
-    logger.info("Instance leakage check PASSED — no overlap between splits")
+    logger.info("Instance leakage check PASSED - no overlap between splits")

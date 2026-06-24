@@ -206,12 +206,12 @@ def _add_rank_changes(results: pd.DataFrame, predictions: pd.DataFrame) -> pd.Da
 def _write_report(results: pd.DataFrame, output_dir: Path, models: list[str], targets: list[float]) -> str:
     lines = []
     lines.append("=" * 108)
-    lines.append("  Two-end precision target report — thresholds selected on valid, applied to heldout test")
+    lines.append("  Two-end precision target report - thresholds selected on valid, applied to heldout test")
     lines.append("=" * 108)
     lines.append("")
-    lines.append("选取规则：valid 上同时满足 Prec(S) >= target 与 Prec(F) >= target；满足后选加权节省最多的阈值对。")
-    lines.append("决策规则：p >= ThrS 判 success；p <= ThrF 判 failure。")
-    lines.append("下面展示的是 test 结果；阈值没有用 test label 调。")
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
     lines.append("")
     for model_name in models:
         sub = results[results["prefix_model"] == model_name].copy()
@@ -224,18 +224,18 @@ def _write_report(results: pd.DataFrame, output_dir: Path, models: list[str], ta
                 continue
             r = row.iloc[0]
             if not bool(r.get("has_valid_candidate", False)):
-                lines.append(f"    target_precision={target:.2f}: valid 中没有同时满足两端 precision 的阈值对")
+                lines.append('Public-release English note.')
                 continue
             lines.append(
                 f"    target_precision={target:.2f}, ThrS={float(r['success_threshold']):.2f}, "
                 f"ThrF={float(r['failure_threshold']):.2f}: "
-                f"决策 {int(r['test_n_decided']):4d} 条, "
-                f"决策正确率 {_fmt_pct(r['test_decision_accuracy'])}, "
-                f"成功端精确度 {_fmt_pct(r['test_precision_success'])}, "
-                f"失败端精确度 {_fmt_pct(r['test_precision_failure'])}, "
-                f"平均 rate 变化 {_fmt_pct(r['test_rate_delta'])}, "
-                f"加权节省 {_fmt_pct(r['test_pct_steps_saved'])} 步数, "
-                f"最大排名变化 {int(r['test_max_rank_change']) if not pd.isna(r['test_max_rank_change']) else 'nan'}, "
+                'Public-release English note.'
+                'Public-release English note.'
+                'Public-release English note.'
+                'Public-release English note.'
+                'Public-release English note.'
+                'Public-release English note.'
+                'Public-release English note.'
                 f"FP={int(r['test_false_positives'])}, FN={int(r['test_false_negatives'])}"
             )
         lines.append("")

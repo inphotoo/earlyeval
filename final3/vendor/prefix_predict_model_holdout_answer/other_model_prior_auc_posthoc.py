@@ -255,13 +255,13 @@ def main() -> None:
     lines = []
     lines += [
         "# Other-Model Task-Prior AUC Baseline", "",
-        "问题：如果同一题的其他模型都做对，就把这道题当成 easy/correct prior，这个 prior 的 AUC 有多高？它和 prefix predictor 的 AUC 差多少？", "",
-        "口径：", 
-        "- `heldout_other_*`：同一个 heldout split 中，除目标模型外的其他 heldout 模型。",
-        "- `train_other_*`：全量 prefix table 中，非本 split holdout 的模型；更接近训练可见的 task prior。",
-        "- `all_other_*`：全量 prefix table 中，除目标模型外所有模型；这是更强的 oracle prior。",
-        "- `all_correct` 是你说的“其他模型都做对”；`mean_success` 是其他模型通过率，通常是更强的连续 prior。",
-        "- top3 默认排除 `gpt-5-2-codex`，并且不把它放进 other-model pool。", "",
+        'Public-release English note.', "",
+        'Public-release English note.', 
+        'Public-release English note.',
+        'Public-release English note.',
+        'Public-release English note.',
+        'Public-release English note.',
+        'Public-release English note.', "",
         "## Main Summary", "",
         "| Split | Strategy | Score | N | PosRate | Model AUC step0 | Model AUC last | Train all-correct | Train mean-success | Heldout all-correct | Heldout mean-success | All-other all-correct | All-other mean-success | Last Adv vs TrainMean |", 
         "|:--|:--|:--|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|",
@@ -295,9 +295,9 @@ def main() -> None:
 
     lines += [
         "", "## Files", "",
-        "- `other_model_prior_auc_by_run.csv`：逐 split / I-J variant / strategy / score 的完整 AUC。",
-        "- `other_model_prior_auc_summary.csv`：对 I/J 取平均后的主表。",
-        "- `other_model_prior_scores_by_traj.csv`：每条 trajectory 的 other-model prior 分数。",
+        'Public-release English note.',
+        'Public-release English note.',
+        'Public-release English note.',
     ]
     (output_dir / "other_model_prior_auc_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(output_dir / "other_model_prior_auc_report.md")

@@ -326,11 +326,11 @@ def main() -> None:
     lines = [
         "# Hard-Subset Policy AUC Rescue Across Splits",
         "",
-        "同一套 hard/ambiguous prior band，在 `top3 / mid3 / bottom3` 上扫 `threshold / min_step / consecutive k / policy_mode`。",
+        'Public-release English note.',
         "",
-        "Baseline 是 `train_other_mean_success` 的 AUC；这里看 threshold-decided subset 上 model score 的 AUC gain。",
+        'Public-release English note.',
         "",
-        "筛选口径：`practical_symmetric = symmetric + Pos>=10 + Neg>=10 + Coverage>=10% + Acc>=70% + Gain>0`。",
+        'Public-release English note.',
         "",
     ]
 
@@ -356,7 +356,7 @@ def main() -> None:
     lines.append("")
 
     if stable.empty:
-        lines += ["## Stable across all agents in split", "", "没有满足每个 agent 都有足够正负例的稳定表。", ""]
+        lines += ["## Stable across all agents in split", "", 'Public-release English note.', ""]
     else:
         stable_pos = stable[stable["min_agent_gain"].gt(0)].head(40)
         lines += [

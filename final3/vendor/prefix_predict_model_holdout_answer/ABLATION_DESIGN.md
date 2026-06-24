@@ -1,74 +1,74 @@
-# Ablation 实验设计文档
+# Ablation description
 
-## 📋 实验目标
+## 📋 description
 
-通过系统的消融实验，量化不同特征组对预测性能的贡献，特别是验证 **thought** 和 **assistant_content** 等新引入特征的价值。
+description,description,description **thought** description **assistant_content** description.
 
 ---
 
-## 🎯 实验设计
+## 🎯 description
 
-### 实验 1：渐进式特征添加 (Incremental Ablation)
+### description 1:description (Incremental Ablation)
 
-**目的：** 从简单到复杂，观察每增加一组特征带来的性能提升。
+**description:** description,description.
 
-对应 `run_all.py` Phase 6 中的 Ablation 1–4：
+description `run_all.py` Phase 6 description Ablation 1-4:
 
 ```
-实验流程：
+description:
   Abl 1: Dense (A~H+J)
-    ↓ +action+feedback（去掉 thought / assistant_content）
+    ↓ +action+feedback(description thought / assistant_content)
   Abl 2: Dense + action + feedback
-    ↓ +thought（仍不含 assistant_content）
+    ↓ +thought(description assistant_content)
   Abl 3: Dense + action + feedback + thought
-    ↓ 复用 Baseline C (Dense + AF + Thought) 作为参考基底
-  Abl 4: Abl_Base_LR = Baseline C 结果
+    ↓ description Baseline C (Dense + AF + Thought) description
+  Abl 4: Abl_Base_LR = Baseline C description
 ```
 
-| 实验编号 | 模型名称 | 特征组成 | 对应代码实现 | 验证问题 |
+| description | description | description | description | description |
 |----------|----------|----------|--------------|----------|
-| Abl 1 | `Abl_DenseOnly_LR` | Dense (A~H+J 组) | 直接用 Dense，无 TF-IDF (`ablation_dense_only.pkl`) | 结构化特征 alone 能到什么程度？ |
-| Abl 2 | `Abl_NoThoughtContent_LR` | Dense + AF (5 路 TF-IDF：task/prefix/last 的 action+feedback) | 在 Dense+Full 上移除 thought 与 assistant_content TF-IDF (`ablation_dense_action_feedback.pkl`) | action+feedback 文本是否有帮助？ |
-| Abl 3 | `Abl_NoAssistantContent_LR` | Dense + AF + Thought (7 路 TF-IDF：AF + thought) | 在 Dense+Full 上仅移除 assistant_content TF-IDF (`ablation_dense_action_feedback_thought.pkl`) | **thought 是否有额外价值？** |
-| Abl 4 | `Abl_Base_LR` | Dense + AF + Thought (参考基底) | 直接复用 Baseline C `C_Dense_AF_Thought_LR` 的模型与预测 | 作为后续单组份消融的基线 |
+| Abl 1 | `Abl_DenseOnly_LR` | Dense (A~H+J description) | description Dense,description TF-IDF (`ablation_dense_only.pkl`) | description alone description? |
+| Abl 2 | `Abl_NoThoughtContent_LR` | Dense + AF (5 description TF-IDF:task/prefix/last description action+feedback) | description Dense+Full description thought description assistant_content TF-IDF (`ablation_dense_action_feedback.pkl`) | action+feedback description? |
+| Abl 3 | `Abl_NoAssistantContent_LR` | Dense + AF + Thought (7 description TF-IDF:AF + thought) | description Dense+Full description assistant_content TF-IDF (`ablation_dense_action_feedback_thought.pkl`) | **thought description?** |
+| Abl 4 | `Abl_Base_LR` | Dense + AF + Thought (description) | description Baseline C `C_Dense_AF_Thought_LR` description | description |
 
-**关键假设：**
-- ✅ Thought 应该带来显著提升 (假设：思考质量预示成功)
-- ✅ Assistant_content 的提升可能较小 (因为与 thought/action 有重叠)
+**description:**
+- ✅ Thought description (description:description)
+- ✅ Assistant_content description (description thought/action description)
 
 ---
 
-### 实验 2：单组份移除 (Leave-One-Out Ablation)
+### description 2:description (Leave-One-Out Ablation)
 
-**目的：** 在 Dense + AF + Thought 基底上，逐一移除每个组份，观察性能下降。
+**description:** description Dense + AF + Thought description,description,description.
 
-**基线模型：** `Abl_Base_LR` (即 Baseline C：Dense + AF + Thought，不含 assistant_content)
+**description:** `Abl_Base_LR` (description Baseline C:Dense + AF + Thought,description assistant_content)
 
-与 `run_all.py` Phase 6 中的 Ablation 5–10 一一对应：
+description `run_all.py` Phase 6 description Ablation 5-10 description:
 
-| 实验编号 | 模型名称 | 移除的组份 | 基底特征 | 对应代码实现 | 验证问题 |
+| description | description | description | description | description | description |
 |----------|----------|------------|----------|--------------|----------|
-| Abl 5 | `Abl_NoTaskPrompt_LR` | task prompt TF-IDF | Dense + AF + Thought | 在 `X_dense_af_thought` 上移除 `tfidf_task_prompt` 所在列块 | 任务描述重要吗？ |
-| Abl 6 | `Abl_NoFeedback_LR` | feedback TF-IDF (prefix/last) | Dense + AF + Thought | 在 `X_dense_af_thought` 上移除 `tfidf_prefix_feedback` 和 `tfidf_last_feedback` 列块 | **环境反馈最关键？** |
-| Abl 7 | `Abl_NoAction_LR` | action TF-IDF (prefix/last) | Dense + AF + Thought | 在 `X_dense_af_thought` 上移除 `tfidf_prefix_action` 和 `tfidf_last_action` 列块 | agent 行动模式重要吗？ |
-| Abl 8 | `Abl_NoThought_LR` | thought TF-IDF (prefix/last) | Dense + AF + Thought | 在 `X_dense_af_thought` 上移除 `tfidf_prefix_thought` 和 `tfidf_last_thought` 列块 | **思考文本有独特价值？** |
-| Abl 9 | `Abl_NoModel_LR` | model_id (dense one-hot) | Dense + AF + Thought | 使用 `FeatureEngineer(include_model_id=False)` 重新构建 Dense + AF + Thought (`ablation_dense_af_thought_no_model.pkl`) | 模型身份是否有影响？ |
-| Abl 10 | `Abl_ProcessOnly_LR` | task prompt + model_id | Dense(no model_id) + process text | 保留 dense(hand-crafted) + prefix/last 的 action、feedback、thought；移除 task prompt 与 model_id | **只凭过程能否预测成功率？** |
+| Abl 5 | `Abl_NoTaskPrompt_LR` | task prompt TF-IDF | Dense + AF + Thought | description `X_dense_af_thought` description `tfidf_task_prompt` description | description? |
+| Abl 6 | `Abl_NoFeedback_LR` | feedback TF-IDF (prefix/last) | Dense + AF + Thought | description `X_dense_af_thought` description `tfidf_prefix_feedback` description `tfidf_last_feedback` description | **description?** |
+| Abl 7 | `Abl_NoAction_LR` | action TF-IDF (prefix/last) | Dense + AF + Thought | description `X_dense_af_thought` description `tfidf_prefix_action` description `tfidf_last_action` description | agent description? |
+| Abl 8 | `Abl_NoThought_LR` | thought TF-IDF (prefix/last) | Dense + AF + Thought | description `X_dense_af_thought` description `tfidf_prefix_thought` description `tfidf_last_thought` description | **description?** |
+| Abl 9 | `Abl_NoModel_LR` | model_id (dense one-hot) | Dense + AF + Thought | description `FeatureEngineer(include_model_id=False)` description Dense + AF + Thought (`ablation_dense_af_thought_no_model.pkl`) | description? |
+| Abl 10 | `Abl_ProcessOnly_LR` | task prompt + model_id | Dense(no model_id) + process text | description dense(hand-crafted) + prefix/last description action,feedback,thought;description task prompt description model_id | **description?** |
 
-**关键假设：**
-- ✅ Feedback 移除应该导致最大下降 (假设：反馈包含最直接的成功/失败信号)
-- ✅ Thought 移除应该有中等下降 (假设：思考提供独特信息，但不如 feedback 直接)
-- ✅ Model_id 移除可能有显著下降 (假设：不同模型如 Claude/GPT-4 能力差异明显)
+**description:**
+- ✅ Feedback description (description:description/description)
+- ✅ Thought description (description:description,description feedback description)
+- ✅ Model_id description (description:description Claude/GPT-4 description)
 
 ---
 
-## 📊 预期结果分析
+## 📊 description
 
-### 结果可视化
+### description
 
-将生成以下对比图：
+description:
 
-1. **渐进式 Ablation 对比图**
+1. **description Ablation description**
    ```
    AUC
    0.85 |         ■ Abl_Full (0.842)
@@ -80,63 +80,63 @@
           Dense  +A+F  +T   +AC
    ```
 
-2. **Leave-One-Out 对比图**
+2. **Leave-One-Out description**
    ```
    AUC
    0.85 | ■ Full (0.842)
         |
-   0.80 | ◆ NoThought (0.815)  ← thought 贡献 ~2.7%
-        | ▲ NoAction (0.798)   ← action 贡献 ~4.4%
-   0.75 | ▼ NoFeedback (0.765) ← feedback 贡献 ~7.7%
+   0.80 | ◆ NoThought (0.815)  ← thought description ~2.7%
+        | ▲ NoAction (0.798)   ← action description ~4.4%
+   0.75 | ▼ NoFeedback (0.765) ← feedback description ~7.7%
         |
    0.70 +---------------------------
    ```
 
-### 决策树：根据结果决定下一步
+### description:description
 
 ```
-如果 Thought 移除导致 AUC 下降 > 5%:
-  → Thought 非常重要！
-  → 建议：进一步分析哪些 thought 模式最有价值
-  → 可以发表关于"agent 思考质量量化"的论文
+description Thought description AUC description > 5%:
+  → Thought description!
+  → description:description thought description
+  → description"agent description"description
 
-如果 Thought 移除导致 AUC 下降 < 1%:
-  → Thought 没有独特价值
-  → 可能原因：thought 信息已被 action/feedback 包含
-  → 建议：考虑去掉 thought 以简化模型
+description Thought description AUC description < 1%:
+  → Thought description
+  → description:thought description action/feedback description
+  → description:description thought description
 
-如果 Assistant_content 移除导致 AUC 下降 > 3%:
-  → Assistant_content 包含独特信息
-  → 建议：保留，并进一步分析其组成
+description Assistant_content description AUC description > 3%:
+  → Assistant_content description
+  → description:description,description
 
-如果 Model_id 移除导致 AUC 下降 > 5%:
-  → 不同模型能力差异显著
-  → 建议：深入分析哪些模型在哪些任务上表现更好
+description Model_id description AUC description > 5%:
+  → description
+  → description:description
 ```
 
 ---
 
-## 🔬 深入分析方向
+## 🔬 description
 
-### 1. Thought 特征的重要性排名
+### 1. Thought description
 
-训练完整模型后，检查 thought 相关特征的系数：
+description,description thought description:
 
 ```python
-# 查看 thought 相关 TF-IDF 特征的最高正/负系数
+# description thought description TF-IDF description/description
 thought_features = [name for name in feature_names if 'thought' in name]
 top_positive = sorted(zip(thought_features, coefficients), key=lambda x: -x[1])[:20]
 top_negative = sorted(zip(thought_features, coefficients), key=lambda x: x[1])[:20]
 
-# 预期发现：
-# 正相关词汇："fix", "understand", "analyze", "debug", "test"
-# 负相关词汇："try", "maybe", "guess", "random", "hope"
+# description:
+# description:"fix", "understand", "analyze", "debug", "test"
+# description:"try", "maybe", "guess", "random", "hope"
 ```
 
-### 2. Thought 长度与成功率的关系
+### 2. Thought description
 
 ```python
-# 分析 prefix_thought_chars 特征与 label 的相关性
+# description prefix_thought_chars description label description
 import matplotlib.pyplot as plt
 
 successful = prefix_df[prefix_df['label'] == 1]['prefix_thought_chars']
@@ -147,105 +147,105 @@ plt.ylabel('Thought characters')
 plt.title('Thought length vs Success')
 ```
 
-**预期：** 成功的轨迹有更长的 thought (更深入思考)
+**description:** description thought (description)
 
-### 3. Thought-Action 重叠率分析
+### 3. Thought-Action description
 
 ```python
-# 分析 thought_action_overlap_avg 与成功率的关系
-# 高重叠率 = thought 聚焦于具体行动
-# 低重叠率 = thought 更抽象/战略性
+# description thought_action_overlap_avg description
+# description = thought description
+# description = thought description/description
 
-# 假设：中等重叠率最好 (既有战略思考，又聚焦行动)
+# description:description (description,description)
 ```
 
 ---
 
-## 📈 成功标准
+## 📈 description
 
-### 主要指标
+### description
 
-- ✅ **完整模型 AUC > 0.85** (相比 dense only 提升 > 15%)
-- ✅ **Thought 移除导致 AUC 下降 > 2%** (证明思考的价值)
-- ✅ **所有 ablation 实验都有统计学意义** (p < 0.01)
+- ✅ **description AUC > 0.85** (description dense only description > 15%)
+- ✅ **Thought description AUC description > 2%** (description)
+- ✅ **description ablation description** (p < 0.01)
 
-### 次要指标
+### description
 
-- ✅ 校准曲线良好 (预测概率与真实频率一致)
-- ✅ 在不同 step bucket 中表现稳定
-- ✅ 特征重要性可解释 (符合直觉)
+- ✅ description (description)
+- ✅ description step bucket description
+- ✅ description (description)
 
 ---
 
-## 🧪 运行命令
+## 🧪 description
 
 ```bash
-# 完整运行所有 ablation
+# description ablation
 cd /workspace/data/liuzijun/research/swebench/machine/swe_prefix_predict7
 python run_all.py --data-dir ../../SWE-smith-trajectories/data
 
-# 查看 ablation 结果
+# description ablation description
 cat reports/evaluation_report.txt | grep "Abl_"
 
-# 生成 ablation 对比图
+# description ablation description
 python scripts/plot_ablation_comparison.py
 ```
 
 ---
 
-## 📝 预期论文贡献
+## 📝 description
 
-基于 ablation 实验结果，可以贡献：
+description ablation description,description:
 
-1. **首个 SWE agent 思考质量量化研究**
-   - 证明 thought 文本包含预测成功的独特信息
+1. **description SWE agent description**
+   - description thought description
    
-2. **特征重要性层次结构**
-   - Feedback > Action > Thought > Task (假设)
-   - 为未来研究提供优先级指导
+2. **description**
+   - Feedback > Action > Thought > Task (description)
+   - description
 
-3. **实用的早期预测工具**
-   - 在 agent 执行到第 t 步时预测成功率
-   - 支持早期终止低成功率轨迹，节省计算资源
+3. **description**
+   - description agent description t description
+   - description,description
 
-4. **开源数据集和基线**
-   - 发布 processed prefix 数据集
-   - 提供可复现的 baseline 代码
+4. **description**
+   - description processed prefix description
+   - description baseline description
 
 ---
 
-## 📅 时间规划
+## 📅 description
 
-| 阶段 | 任务 | 预计时间 |
+| description | description | description |
 |------|------|----------|
-| 1 | 运行完整 ablation 实验 | 2-3 小时 |
-| 2 | 分析结果，生成图表 | 1-2 小时 |
-| 3 | 深入分析 thought 特征 | 2-4 小时 |
-| 4 | 撰写技术报告/论文 | 1-2 天 |
+| 1 | description ablation description | 2-3 description |
+| 2 | description,description | 1-2 description |
+| 3 | description thought description | 2-4 description |
+| 4 | description/description | 1-2 description |
 
 ---
 
-## 🎓 关键研究问题
+## 🎓 description
 
-1. **RQ1:** Agent 的思考过程 (thought) 是否包含预测成功的独特信息？
-   - 验证方法：Ablation 8 (去掉 thought)
+1. **RQ1:** Agent description (thought) description?
+   - description:Ablation 8 (description thought)
 
-2. **RQ2:** Assistant content 是否比单独的 thought + action 提供更多信息？
-   - 验证方法：对比 Ablation 3 vs Ablation 4
+2. **RQ2:** Assistant content description thought + action description?
+   - description:description Ablation 3 vs Ablation 4
 
-3. **RQ3:** 哪些类型的思考模式最预示成功？
-   - 验证方法：分析 thought TF-IDF 特征的重要性
+3. **RQ3:** description?
+   - description:description thought TF-IDF description
 
-4. **RQ4:** 思考的"深度"(长度、密度)是否与成功率正相关？
-   - 验证方法：分析 J 组 dense 特征的相关性
+4. **RQ4:** description"description"(description,description)description?
+   - description:description J description dense description
 
-5. **RQ5:** 不同模型 (Claude/GPT-4) 的思考模式是否有显著差异？
-   - 验证方法：对比 model_id 特征的系数
+5. **RQ5:** description (Claude/GPT-4) description?
+   - description:description model_id description
 
-6. **RQ6:** 去除任务先验与模型身份后，仅过程状态是否仍具备较强可预测性？
-   - 验证方法：对比 Baseline C 与 Abl 10 (`Abl_ProcessOnly_LR`)
+6. **RQ6:** description,description?
+   - description:description Baseline C description Abl 10 (`Abl_ProcessOnly_LR`)
 
 ---
 
-**最后更新:** 2026-03-10  
-**版本:** v2.0 (包含 thought/content 特征)
+**description:** 2026-03-10  
+**description:** v2.0 (description thought/content description)

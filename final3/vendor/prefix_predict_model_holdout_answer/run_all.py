@@ -1,30 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-"""
-SWE-smith Prefix Success Prediction — 主流程脚本
-
-完整流水线：
-  1. 读取 tool split parquet → 重建 step_table
-  2. 构建 prefix_table（含全部手工特征 A~H）
-  3. 按 instance_id（默认）或 traj group_id 切分 train/valid/test
-  4. 特征化（dense + TF-IDF）
-  5. 训练四个 baseline 模型
-  6. 评估 + ablation + 生成报告
-
-用法:
-  export SWE_PARQUET_DIR=/path/to/parquet_dir
-  python run_all.py
-
-  # 或直接指定路径（bash 多模型/多轨迹数据务必按题目切分，避免同一 instance 泄漏到多个 split）
-  python run_all.py --data-dir /path/to/parquet_dir --split-by instance
-
-  # 去重后随机抽 N 条轨迹做快速试验（可复现）
-  python run_all.py --run-name smoke --max-trajectories 2000 --sample-trajectories-seed 42 --split-by instance
-
-  # 跳过某些阶段
-  python run_all.py --skip-step-table   # 如果已有 step_table.parquet
-  python run_all.py --skip-prefix-table # 如果已有 prefix_table.parquet
-"""
+'Public-release English note.'
 import argparse
 import os
 import re
@@ -45,7 +21,7 @@ from sklearn.metrics import precision_recall_curve, roc_curve
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
-# 确保项目根目录在 path 中
+# Public-release English note.
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -77,11 +53,7 @@ logger = get_logger("run_all")
 
 
 def _validate_prefix_group_integrity(prefix_df: pd.DataFrame):
-    """
-    强校验：
-    1) (group_id, prefix_step_idx) 必须唯一
-    2) 每个 group_id 只能映射到一个 traj_id
-    """
+    'Public-release English note.'
     dup_mask = prefix_df.duplicated(subset=["group_id", "prefix_step_idx"], keep=False)
     dup_n = int(dup_mask.sum())
     if dup_n > 0:
@@ -142,9 +114,9 @@ def parse_args():
         type=str,
         choices=("trajectory", "instance", "model_holdout"),
         default="instance",
-        help="instance（默认）: 按 instance_id 划分，同一 SWE 题目所有轨迹只在 train/valid/test 之一（bash 多模型必选）。"
-        "trajectory: 按 traj（group_id）划分，允许同一题目多条轨迹分到不同集合（易泄漏，仅用于对照实验）。"
-        "model_holdout: 按模型留出测试，训练模型身份 one-hot，测试模型身份映射到 __MISSING__。",
+        help='Public-release English note.'
+        'Public-release English note.'
+        'Public-release English note.',
     )
     ap.add_argument(
         "--verified-jsonl",
@@ -196,13 +168,7 @@ def _save_test_artifacts(
     calibrated_predictions: dict[str, np.ndarray] | None = None,
     scores_for_rank_curves: dict[str, np.ndarray] | None = None,
 ):
-    """
-    保存测试集逐样本预测与曲线点数据，便于复用和二次分析。
-
-    scores_for_rank_curves:
-        若提供，ROC/PR 曲线 CSV 用该分数排序（与 eval 中 LR 的 decision_function 一致）；
-        未给出的模型仍用 predict_proba。
-    """
+    'Public-release English note.'
     save_dir.mkdir(parents=True, exist_ok=True)
     curve_dir = save_dir / "curve_data"
     curve_dir.mkdir(parents=True, exist_ok=True)
@@ -266,7 +232,7 @@ def _save_test_artifacts(
     logger.info(f"Saved test predictions: {pred_csv}")
     logger.info(f"Saved test predictions: {pred_parquet}")
 
-    # 多模型合并曲线点（便于一次性读取）
+    # Public-release English note.
     all_roc_rows = []
     all_pr_rows = []
     for model_name, y_prob in all_predictions.items():
@@ -384,9 +350,7 @@ def _train_lightgbm_with_fallback(
     model_name: str,
     model_path: Path,
 ):
-    """
-    训练 LightGBM 并在 GPU 失败时自动回退 CPU，返回 (booster, y_test_prob)。
-    """
+    'Public-release English note.'
     original_params = dict(config.LGBM_PARAMS)
     try:
         booster = train_lightgbm(
@@ -444,7 +408,7 @@ def _run_ablation_lgbm(
     w_valid: np.ndarray,
     register_prediction=None,
 ):
-    """与每项 LR 消融同特征矩阵的 LightGBM；--skip-lgbm 时跳过。"""
+    'Public-release English note.'
     if args.skip_lgbm:
         return
     n_feat = int(X_train.shape[1])
@@ -479,7 +443,7 @@ def _run_ablation_lgbm(
 def main():
     args = parse_args()
 
-    # ── 输出目录隔离 ──
+    # Public-release English note.
     if args.run_name:
         run_root = config.PROJECT_ROOT / "runs" / args.run_name
         config.DATA_DIR = run_root / "data"
@@ -491,13 +455,13 @@ def main():
         config.PREFIX_TABLE_FILTERED_PATH = config.DATA_DIR / "prefix_table_filtered.parquet"
         for d in [config.DATA_DIR, config.MODEL_DIR, config.REPORT_DIR, config.LOG_DIR]:
             d.mkdir(parents=True, exist_ok=True)
-        # logger 在模块导入时已初始化，这里需要重绑 file handler 到新的 LOG_DIR
+        # Public-release English note.
         rebind_all_file_loggers()
 
     if args.data_dir:
         config.PARQUET_INPUT_DIR = args.data_dir
 
-    # 快速验证模式：只跑一个 parquet + 跳过重计算阶段
+    # Public-release English note.
     if args.quick_verify:
         source = args.single_parquet or config.PARQUET_INPUT_DIR
         files = _iter_tool_parquet_files(source)
@@ -574,7 +538,7 @@ def main():
         prefix_df = pd.read_parquet(config.PREFIX_TABLE_PATH)
         logger.info(f"Loaded prefix table: {len(prefix_df)} rows")
 
-    # 关键数据一致性检查，防止 group 级别数据泄漏。
+    # Public-release English note.
     _validate_prefix_group_integrity(prefix_df)
 
     answer_summary = {}
@@ -599,7 +563,7 @@ def main():
                 logger.info(f"Answer-enriched prefix table saved: {answer_path}")
 
     # ══════════════════════════════════════════════════════════
-    # Phase 2.5: 过滤短轨迹
+    # Public-release English note.
     # ══════════════════════════════════════════════════════════
     min_steps = config.MIN_TRAJECTORY_STEPS
     if args.split_by == "model_holdout":
@@ -620,11 +584,11 @@ def main():
             f"{len(prefix_df)} prefix samples remaining"
         )
 
-    # 保存过滤后的数据集
+    # Public-release English note.
     prefix_df.to_parquet(config.PREFIX_TABLE_FILTERED_PATH, index=False)
     logger.info(f"Filtered prefix table saved: {config.PREFIX_TABLE_FILTERED_PATH}")
 
-    # 统计过滤后轨迹的步数分布
+    # Public-release English note.
     filtered_step_counts = prefix_df.groupby("traj_id")["n_steps_total_for_weighting"].first()
     if len(filtered_step_counts):
         logger.info(
@@ -639,7 +603,7 @@ def main():
     # Phase 3: Data Split
     # ══════════════════════════════════════════════════════════
     with timer(logger, "Phase 3: Splitting data"):
-        # group_id 重复性检查
+        # Public-release English note.
         group_traj = prefix_df.groupby("group_id")["traj_id"].nunique()
         multi_traj_groups = (group_traj > 1).sum()
         logger.info(f"Groups with multiple trajectories: {multi_traj_groups} / {len(group_traj)}")
@@ -750,7 +714,7 @@ def main():
     # Phase 4: Feature Engineering
     # ══════════════════════════════════════════════════════════
     with timer(logger, "Phase 4: Feature engineering"):
-        # 版本 A：包含 model_id
+        # Public-release English note.
         fe_with_model_path = config.MODEL_DIR / "feature_engineer_with_model.pkl"
         if args.reuse_feature_engineers and fe_with_model_path.exists():
             fe_with_model = FeatureEngineer.load(fe_with_model_path)
@@ -763,7 +727,7 @@ def main():
             fe_with_model.fit(df_train)
             fe_with_model.save(fe_with_model_path)
 
-        # 版本 B：不含 model_id
+        # Public-release English note.
         fe_no_model_path = config.MODEL_DIR / "feature_engineer_no_model.pkl"
         if args.reuse_feature_engineers and fe_no_model_path.exists():
             fe_no_model = FeatureEngineer.load(fe_no_model_path)
@@ -776,17 +740,17 @@ def main():
             fe_no_model.fit(df_train)
             fe_no_model.save(fe_no_model_path)
 
-        # ── 构建 Dense 特征矩阵 ──
+        # Public-release English note.
         logger.info("Building dense feature matrices...")
         X_train_dense = fe_with_model.transform_dense(df_train)
         X_valid_dense = fe_with_model.transform_dense(df_valid)
         X_test_dense = fe_with_model.transform_dense(df_test)
         logger.info(f"Dense shape: {X_train_dense.shape}")
 
-        # ── 构建分层 TF-IDF 特征矩阵 ──
+        # Public-release English note.
         logger.info("Building hierarchical TF-IDF feature matrices...")
         
-        # TF-IDF 1: Action + Feedback (基础版)
+        # Public-release English note.
         tfidf_af_cols = ["tfidf_task_prompt", "tfidf_prefix_action", "tfidf_prefix_feedback",
                          "tfidf_last_action", "tfidf_last_feedback"]
         tfidf_all_cols = list(fe_with_model.active_text_columns.keys())
@@ -798,7 +762,7 @@ def main():
         X_test_tfidf_af = _stack_tfidf_blocks(test_tfidf_blocks, tfidf_af_cols, len(df_test))
         logger.info(f"TF-IDF AF shape: {X_train_tfidf_af.shape}")
         
-        # TF-IDF 2: AF + Thought (进阶版)
+        # Public-release English note.
         tfidf_af_thought_cols = tfidf_af_cols + ["tfidf_prefix_thought", "tfidf_last_thought"]
         X_train_tfidf_af_thought = _stack_tfidf_blocks(train_tfidf_blocks, tfidf_af_thought_cols, len(df_train))
         X_valid_tfidf_af_thought = _stack_tfidf_blocks(valid_tfidf_blocks, tfidf_af_thought_cols, len(df_valid))
@@ -811,7 +775,7 @@ def main():
         X_test_tfidf_full = _stack_tfidf_blocks(test_tfidf_blocks, tfidf_all_cols, len(df_test))
         logger.info(f"TF-IDF Full shape: {X_train_tfidf_full.shape}")
 
-        # ── 构建 Dense + 分层 TF-IDF 组合矩阵 ──
+        # Public-release English note.
         logger.info("Building combined Dense + TF-IDF matrices...")
         X_train_dense_sp = sparse.csr_matrix(X_train_dense)
         X_valid_dense_sp = sparse.csr_matrix(X_valid_dense)
@@ -837,7 +801,7 @@ def main():
             + fe_with_model.get_tfidf_feature_names_for_columns(tfidf_af_thought_cols)
         )
         
-        # Baseline D: Dense + Full (主模型)
+        # Public-release English note.
         X_train_all = sparse.hstack([X_train_dense_sp, X_train_tfidf_full], format="csr")
         X_valid_all = sparse.hstack([X_valid_dense_sp, X_valid_tfidf_full], format="csr")
         X_test_all = sparse.hstack([X_test_dense_sp, X_test_tfidf_full], format="csr")
@@ -849,7 +813,7 @@ def main():
             list(fe_with_model.active_text_columns.keys())
         )
 
-        # ── 不含 model_id 版本 (用于 Ablation 9) ──
+        # Public-release English note.
         logger.info("Building no-model_id matrices...")
         X_train_dense_nomodel = fe_no_model.transform_dense(df_train)
         X_valid_dense_nomodel = fe_no_model.transform_dense(df_valid)
@@ -860,7 +824,7 @@ def main():
         logger.info(f"Dense(no-model_id) shape: {X_train_dense_nomodel.shape}")
 
     # ══════════════════════════════════════════════════════════
-    # Phase 5: Baseline 训练 (7 个模型)
+    # Public-release English note.
     # ══════════════════════════════════════════════════════════
     all_models = {}
     all_predictions = {}
@@ -959,7 +923,7 @@ def main():
             lr_dense_af_thought.predict_proba(X_test_dense_af_thought_sp)[:, 1],
         )
 
-    # ── Baseline D: Dense + Full (AF+Thought+AC) LR (主模型) ──
+    # Public-release English note.
     with timer(logger, "Phase 5D: Dense + Full LR (main model)"):
         X_train_all_sp = sparse.csr_matrix(X_train_all)
         X_valid_all_sp = sparse.csr_matrix(X_valid_all)
@@ -1035,7 +999,7 @@ def main():
             lr_tfidf_full.predict_proba(X_test_tfidf_full_sp)[:, 1],
         )
 
-    # ── Baseline H~N: LightGBM 系列（非线性） ──
+    # Public-release English note.
     if not args.skip_lgbm:
         with timer(logger, "Phase 5H~N: LightGBM variants"):
             lgbm_specs = [
@@ -1126,13 +1090,13 @@ def main():
         logger.info("Phase 5H~N: Skipped LightGBM")
 
     # ══════════════════════════════════════════════════════════
-    # Phase 6: Ablation — 系统的特征组消融实验
+    # Public-release English note.
     # ══════════════════════════════════════════════════════════
-    # 切片消融 LR 的列名（与 coef_ 维度一致，供 Phase 7 特征重要性 / 特征组）
+    # Public-release English note.
     ablation_feature_name_overrides: dict[str, list[str]] = {}
     if not args.skip_ablation:
         with timer(logger, "Phase 6: Ablation experiments"):
-            # 预计算：各 TF-IDF 组的列索引范围
+            # Public-release English note.
             dense_dim = X_train_dense.shape[1]
             tfidf_offsets = {}
             offset = dense_dim
@@ -1151,10 +1115,10 @@ def main():
             if len(fn_full) != total_dim:
                 logger.warning(
                     f"get_all_feature_names()={len(fn_full)} vs total_dim={total_dim} "
-                    "(ablation LGBM 列名可能对不齐)"
+                    'Public-release English note.'
                 )
 
-            # ── Ablation 1: Dense only (无任何 TF-IDF) ──
+            # Public-release English note.
             logger.info("Ablation 1: Dense only (A~H+J groups, no TF-IDF)")
             X_train_dense_only = X_train_dense_sp
             X_valid_dense_only = X_valid_dense
@@ -1186,7 +1150,7 @@ def main():
                 register_prediction=_register_prediction,
             )
 
-            # ── Ablation 2: Dense + action + feedback (无 thought/content) ──
+            # Public-release English note.
             logger.info("Ablation 2: Dense + action + feedback (no thought, no assistant_content)")
             remove_cols = set()
             for tname in ["tfidf_prefix_thought", "tfidf_last_thought",
@@ -1226,7 +1190,7 @@ def main():
                 register_prediction=_register_prediction,
             )
 
-            # ── Ablation 3: Dense + action + feedback + thought (无 assistant_content) ──
+            # Public-release English note.
             logger.info("Ablation 3: Dense + action + feedback + thought (no assistant_content)")
             remove_cols = set()
             for tname in ["tfidf_prefix_assistant_content", "tfidf_last_assistant_content"]:
@@ -1265,7 +1229,7 @@ def main():
                 register_prediction=_register_prediction,
             )
 
-            # ── Ablation 4: Dense + AF + Thought (即 Baseline C，已训练) ──
+            # Public-release English note.
             all_models["Abl_Base_LR"] = all_models["C_Dense_AF_Thought_LR"]
             all_predictions["Abl_Base_LR"] = all_predictions["C_Dense_AF_Thought_LR"]
             if "C_Dense_AF_Thought_LR" in calibrated_predictions:
@@ -1278,7 +1242,7 @@ def main():
                 if "J_LightGBM_Dense_AF_Thought" in calibrated_predictions:
                     calibrated_predictions["Abl_Base_LightGBM"] = calibrated_predictions["J_LightGBM_Dense_AF_Thought"]
 
-            # ── Ablation 5: 去掉 task prompt (从 Dense + AF + Thought 基底出发) ──
+            # Public-release English note.
             logger.info("Ablation 5: Dense + AF + Thought without task prompt")
             dense_dim_base = X_train_dense.shape[1]
             af_thought_offsets = {}
@@ -1330,7 +1294,7 @@ def main():
             else:
                 logger.warning("tfidf_task_prompt not found, skipping Ablation 5")
 
-            # ── Ablation 6: 去掉 feedback (从 Dense + AF + Thought 基底出发) ──
+            # Public-release English note.
             logger.info("Ablation 6: Dense + AF + Thought without feedback")
             remove_cols = set()
             for tname in ["tfidf_prefix_feedback", "tfidf_last_feedback"]:
@@ -1371,7 +1335,7 @@ def main():
                 register_prediction=_register_prediction,
             )
 
-            # ── Ablation 7: 去掉 action (从 Dense + AF + Thought 基底出发) ──
+            # Public-release English note.
             logger.info("Ablation 7: Dense + AF + Thought without action")
             remove_cols = set()
             for tname in ["tfidf_prefix_action", "tfidf_last_action"]:
@@ -1412,7 +1376,7 @@ def main():
                 register_prediction=_register_prediction,
             )
 
-            # ── Ablation 8: 去掉 thought (从 Dense + AF + Thought 基底出发) ──
+            # Public-release English note.
             logger.info("Ablation 8: Dense + AF + Thought without thought")
             remove_cols = set()
             for tname in ["tfidf_prefix_thought", "tfidf_last_thought"]:
@@ -1453,7 +1417,7 @@ def main():
                 register_prediction=_register_prediction,
             )
 
-            # ── Ablation 9: 去掉 model_id (从 Dense + AF + Thought 基底出发) ──
+            # Public-release English note.
             logger.info("Ablation 9: Dense + AF + Thought without model_id")
             X_train_base_nomodel = sparse.hstack(
                 [X_train_dense_nomodel_sp, X_train_tfidf_af_thought], format="csr"
@@ -1495,7 +1459,7 @@ def main():
                 register_prediction=_register_prediction,
             )
 
-            # ── Ablation 10: Process-only（去 task prompt + 去 model_id）──
+            # Public-release English note.
             logger.info("Ablation 10: Process-only (no task prompt, no model_id)")
             process_cols = [
                 "tfidf_prefix_action", "tfidf_prefix_feedback", "tfidf_prefix_thought",
@@ -1548,7 +1512,7 @@ def main():
                 register_prediction=_register_prediction,
             )
 
-    # Mixed-model 实现检查（写入报告）
+    # Public-release English note.
     implementation_checks = {
         **implementation_model_meta,
         "gold_answer_features_enabled": not args.disable_answer_features,
@@ -1625,7 +1589,7 @@ def main():
         for model_name, y_prob in all_predictions.items():
             logger.info(f"Evaluating {model_name}...")
 
-            # 核心指标
+            # Public-release English note.
             metrics = compute_metrics(y_test, y_prob)
             logger.info(
                 f"  {model_name}: AUC={_fmt_metric_line(metrics.get('roc_auc'))}, "
@@ -1634,7 +1598,7 @@ def main():
                 f"Brier={_fmt_metric_line(metrics.get('brier_score'))}"
             )
 
-            # 分桶指标
+            # Public-release English note.
             bucketed = compute_bucketed_metrics(y_test, y_prob, step_test)
             threshold_table = compute_threshold_decision_table(
                 y_true=y_test,
@@ -1643,31 +1607,31 @@ def main():
                 n_steps_total=n_steps_total_test,
             )
 
-            # 轨迹级别的步骤节省统计（新方法）
+            # Public-release English note.
             trajectory_savings = compute_trajectory_level_savings(
                 df_test=df_test,
                 y_prob=y_prob,
             )
 
-            # 按精确度水平：分别取满足 Prec(S)≥x / Prec(F)≥x 的最小 thr（见 evaluator 返回结构）
+            # Public-release English note.
             precision_level_savings = compute_trajectory_savings_at_precision_levels(
                 df_test=df_test,
                 y_prob=y_prob,
             )
 
-            # 特征重要性
+            # Public-release English note.
             fi = []
             model_obj = all_models.get(model_name)
             if model_obj is not None:
                 if hasattr(model_obj, "coef_"):
-                    # 根据模型类型选择合适的特征名来源，避免使用过时的模型命名
+                    # Public-release English note.
                     if model_name in ablation_feature_name_overrides:
                         feat_names = ablation_feature_name_overrides[model_name]
                     elif model_name in ("A_Dense_LR", "Abl_DenseOnly_LR"):
-                        # 纯 Dense 模型
+                        # Public-release English note.
                         feat_names = fe_with_model.dense_feature_names
                     elif model_name in ("Abl_NoModel_LR", "Abl_ProcessOnly_LR"):
-                        # 不含 model_id 的 dense+text 模型
+                        # Public-release English note.
                         if model_name == "Abl_ProcessOnly_LR":
                             process_cols = [
                                 "tfidf_prefix_action", "tfidf_prefix_feedback", "tfidf_prefix_thought",
@@ -1681,7 +1645,7 @@ def main():
                         "F_TfIdf_AF_Thought_LR",
                         "G_TfIdf_Full_LR",
                     ):
-                        # 纯 TF-IDF 模型：按各自子集获取特征名（含分组降维后列）。
+                        # Public-release English note.
                         if model_name == "E_TfIdf_AF_LR":
                             cols = tfidf_af_cols
                         elif model_name == "F_TfIdf_AF_Thought_LR":
@@ -1690,7 +1654,7 @@ def main():
                             cols = list(fe_with_model.active_text_columns.keys())
                         feat_names = fe_with_model.get_tfidf_feature_names_for_columns(cols)
                     else:
-                        # Dense + TF-IDF 组合模型：使用完整特征名列表
+                        # Public-release English note.
                         feat_names = fe_with_model.get_all_feature_names()
 
                     fi = plot_feature_importance_lr(
@@ -1706,7 +1670,7 @@ def main():
                         save_path=config.REPORT_DIR / f"feature_importance_{model_name}.png",
                     )
 
-            # 特征组贡献度分析
+            # Public-release English note.
             fg_contribution = {}
             if model_obj is not None:
                 is_lgbm = hasattr(model_obj, "feature_importance")
@@ -1738,8 +1702,8 @@ def main():
                 "feature_group_contribution": fg_contribution,
             }
 
-            # 绘图（仅主要模型）
-            # 与当前 Baseline 命名保持一致：主 Dense、主 Dense+Full、主 TF-IDF Full、LightGBM
+            # Public-release English note.
+            # Public-release English note.
             _plot_abl_lgbm = (
                 model_name.startswith("Abl_")
                 and model_name.endswith("_LightGBM")
@@ -1778,11 +1742,11 @@ def main():
                     config.REPORT_DIR / f"step_metrics_{model_name}.png",
                 )
 
-        # 全模型 ROC 对比图
+        # Public-release English note.
         _plot_multi_roc(y_test, all_predictions, config.REPORT_DIR / "roc_comparison_all.png")
         _plot_multi_pr(y_test, all_predictions, config.REPORT_DIR / "pr_comparison_all.png")
 
-        # 生成文本报告
+        # Public-release English note.
         report_text = generate_full_report(
             all_results,
             config.REPORT_DIR,
@@ -1799,7 +1763,7 @@ def main():
 
 
 def _plot_multi_roc(y_true, predictions_dict, save_path):
-    """多模型 ROC 对比图。"""
+    'Public-release English note.'
     from sklearn.metrics import roc_auc_score
     fig, ax = plt.subplots(figsize=(8, 6))
     for name, y_prob in predictions_dict.items():
@@ -1818,7 +1782,7 @@ def _plot_multi_roc(y_true, predictions_dict, save_path):
 
 
 def _plot_multi_pr(y_true, predictions_dict, save_path):
-    """多模型 PR 对比图。"""
+    'Public-release English note.'
     from sklearn.metrics import average_precision_score
     fig, ax = plt.subplots(figsize=(8, 6))
     for name, y_prob in predictions_dict.items():

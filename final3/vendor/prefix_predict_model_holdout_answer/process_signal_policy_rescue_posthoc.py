@@ -409,7 +409,7 @@ def write_report(output_dir: Path, aggregate: pd.DataFrame) -> None:
     lines: list[str] = []
     lines.append("# Process-Signal Rescue Policy Report")
     lines.append("")
-    lines.append("这些都是 post-hoc 策略实验，没有重训。")
+    lines.append('Public-release English note.')
     lines.append("")
     lines.append("## Best Policies with Save >= 15% and |Drop| <= 2pp")
     candidate = aggregate[

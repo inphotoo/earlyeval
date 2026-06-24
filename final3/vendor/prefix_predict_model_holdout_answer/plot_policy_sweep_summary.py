@@ -220,7 +220,7 @@ def plot_tradeoff(df: pd.DataFrame, output_dir: Path) -> list[Path]:
         ]
         fig.legend(handles=threshold_handles + k_handles, loc="lower center", ncol=6)
         fig.suptitle(
-            f"Tradeoff: Save% vs Resolve-Rate Drop — {model_short}\n"
+            f"Tradeoff: Save% vs Resolve-Rate Drop - {model_short}\n"
             "negative Drop = adjusted resolve rate is higher than original; point size grows with min_step",
             y=0.98,
         )
@@ -273,7 +273,7 @@ def plot_policy_lines(df: pd.DataFrame, output_dir: Path) -> list[Path]:
                 if row_idx == len(runs) - 1:
                     ax.set_xlabel("Threshold")
         fig.legend(loc="lower center", ncol=2)
-        fig.suptitle(f"Drop change by threshold — {model_short}", y=0.98)
+        fig.suptitle(f"Drop change by threshold - {model_short}", y=0.98)
         fig.tight_layout(rect=[0, 0.05, 1, 0.94])
         path = plot_dir / f"drop_lines_baseline_vs_min10k3_{_safe_name(model_short)}.png"
         fig.savefig(path, dpi=160)
@@ -317,7 +317,7 @@ def plot_heatmaps(df: pd.DataFrame, output_dir: Path) -> list[Path]:
                         continue
                     ax.text(x, y, f"{val:.1f}", ha="center", va="center", fontsize=8)
         fig.colorbar(im, ax=axes.ravel().tolist(), shrink=0.82, label="Drop pp")
-        fig.suptitle(f"Drop heatmap — {run} / {score} / {model_short}")
+        fig.suptitle(f"Drop heatmap - {run} / {score} / {model_short}")
         fig.tight_layout(rect=[0, 0, 0.92, 0.9])
         path = plot_dir / f"drop_heatmap_{_safe_name(run)}_{_safe_name(score)}_{_safe_name(model_short)}.png"
         fig.savefig(path, dpi=160)
@@ -330,15 +330,15 @@ def write_markdown(df: pd.DataFrame, output_dir: Path, plot_paths: list[Path], t
     lines: list[str] = []
     lines.append("# Policy Sweep Visual Summary")
     lines.append("")
-    lines.append("Drop 口径：`original_resolve_rate - adjusted_resolve_rate`。")
-    lines.append("负数表示 early decision 把 adjusted rate 抬高；正数表示 adjusted rate 降低。")
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
     lines.append("")
     lines.append("## Files")
     for name, path in table_paths.items():
         lines.append(f"- `{path.relative_to(output_dir)}`")
-    lines.append("- `plots/tradeoff_save_vs_drop_*.png`：Save% vs Drop pp，总览所有策略点。")
-    lines.append("- `plots/drop_lines_baseline_vs_min10k3_*.png`：baseline 和 `min_step=10,k=3` 随 threshold 的 Drop 变化。")
-    lines.append("- `plots/drop_heatmaps/*.png`：完整 Drop 热力图。")
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
     lines.append("")
 
     lines.append("## Recommended Quick Read")
@@ -349,7 +349,7 @@ def write_markdown(df: pd.DataFrame, output_dir: Path, plot_paths: list[Path], t
     ].copy()
     focus["policy"] = np.where(focus["min_step"].eq(0), "baseline", "min10/k3")
     for run in ["mid3", "top3", "bottom3"]:
-        lines.append(f"### J model — {run}")
+        lines.append(f"### J model - {run}")
         sub = focus[focus["run_short"] == run].sort_values(["score_short", "threshold", "policy"])
         lines.append("| Score | Thr | Policy | Coverage | Acc | Save% | Drop pp | FN | FP |")
         lines.append("|:--|--:|:--|--:|--:|--:|--:|--:|--:|")

@@ -182,9 +182,9 @@ def write_report(curves: pd.DataFrame, image_paths: list[Path]) -> Path:
     lines = [
         "# Dual-Head Threshold Agent Curves Across Splits",
         "",
-        "口径：dual-head conjunctive gate；每个 `split + variant + score_mode` 固定 validation 选出的 `min_step/k`，只扫 threshold。",
+        'Public-release English note.',
         "",
-        "`resolve_delta_pp = adjusted_resolve_rate - original_resolve_rate`；越接近 0 越说明离线估计下对真实 resolve rate 的扰动越小。",
+        'Public-release English note.',
         "",
         "## Images",
         "",

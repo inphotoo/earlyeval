@@ -1,22 +1,18 @@
 # pipelines
 
-`pipelines/` 放多个模块组合后的稳定流程。pipeline 是给用户运行的工作流，不是底层算法实现区。
+`pipelines/` composes lower-level modules into user-facing workflows.
 
-## 当前 pipeline
+## Current Safe Stop
 
-`current_safe_stop.py` 提供 `run_current_safe_stop`：
+`current_safe_stop.py` exposes `run_current_safe_stop`:
 
-- `mode=smoke`: 使用 `examples/smoke_predictions.csv`，输出到 `outputs/current_safe_stop_smoke/`。
-- `mode=main`: 需要显式传入 `--predictions`，默认输出到 `outputs/current_safe_stop_main/`。
-- `mode=full`: 当前故意不接重型实验，会报错提示先看 registry。
-
-## 常用命令
+- `mode=smoke`: uses the bundled smoke prediction example.
+- `mode=main`: requires `--predictions` and writes a main-run output folder.
+- `mode=full`: reserved for registry-driven full workflows.
 
 ```bash
 python -m final3.cli pipeline current-safe-stop --mode smoke
 ```
-
-主策略：
 
 ```bash
 python -m final3.cli pipeline current-safe-stop \
@@ -24,6 +20,5 @@ python -m final3.cli pipeline current-safe-stop \
   --predictions /path/to/test_predictions_safe_stop.parquet
 ```
 
-## 新 pipeline 怎么加
-
-新增流程时，应在这里调用 `core/`、`policies/`、`models/`、`reports/` 等模块的业务函数，再到 `final3/cli.py` 暴露命令。不要把复杂逻辑直接写进 CLI。
+Pipelines should coordinate `core/`, `policies/`, `models/`, and `reports/`
+without hiding new command-line behavior outside `final3/cli.py`.

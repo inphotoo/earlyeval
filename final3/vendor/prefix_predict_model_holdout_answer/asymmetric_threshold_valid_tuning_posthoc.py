@@ -645,7 +645,7 @@ def _make_heatmaps(test_sweep: pd.DataFrame, output_dir: Path) -> None:
             ax.set_yticklabels([f"{x:.2f}" for x in pivot.index])
             ax.set_xlabel("success_threshold")
             ax.set_ylabel("failure_threshold")
-            ax.set_title(f"{title} — {model_name}")
+            ax.set_title(f"{title} - {model_name}")
             cbar = fig.colorbar(im, ax=ax)
             cbar.ax.set_ylabel(metric)
             fig.tight_layout()
@@ -684,9 +684,9 @@ def _write_report(
     lines.append("  Validation-tuned asymmetric two-sided threshold report")
     lines.append("=" * 110)
     lines.append("")
-    lines.append("含义：概率仍使用已有 validation-only Platt 校准列；本报告在 valid 上校准两个决策阈值。")
-    lines.append("规则：p >= success_threshold 判 success；p <= failure_threshold 判 failure；中间区间继续跑。")
-    lines.append("test 没有参与阈值选择，只用于应用 valid 选出的阈值。")
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
     lines.append("")
     lines.append(
         f"Valid rows/trajs/instances: {split_meta.get('valid_rows_loaded')} / "
@@ -698,7 +698,7 @@ def _write_report(
     )
     lines.append("")
 
-    lines.append("1. Valid 选阈值后应用到 Test 的结果")
+    lines.append('Public-release English note.')
     lines.append("-" * 110)
     header = (
         f"{'Model':34s} {'Policy':10s} {'ThrS':>5s} {'ThrF':>5s} "
@@ -719,7 +719,7 @@ def _write_report(
         )
     lines.append("")
 
-    lines.append("2. 每个模型在 Test 上 rate_1pp policy 的摘要")
+    lines.append('Public-release English note.')
     lines.append("-" * 110)
     rate_1pp = test_selected[test_selected["selection_policy"] == "rate_1pp"].copy()
     for _, row in rate_1pp.sort_values("pct_steps_saved", ascending=False).iterrows():
@@ -733,7 +733,7 @@ def _write_report(
         )
     lines.append("")
 
-    lines.append("3. 输出文件")
+    lines.append('Public-release English note.')
     lines.append("-" * 110)
     for name in [
         "valid_sweep.csv",
@@ -745,8 +745,8 @@ def _write_report(
     ]:
         lines.append(f"- {name}")
     lines.append("")
-    lines.append("说明：ΔRate = adjusted_resolve_rate - original_resolve_rate；正数表示早停后把 rate 抬高。")
-    lines.append("      Save = total_saved_steps / total_prefix_rows；越高表示越早停、越省。")
+    lines.append('Public-release English note.')
+    lines.append('Public-release English note.')
     lines.append("")
     output_dir.joinpath("report.txt").write_text("\n".join(lines), encoding="utf-8")
 

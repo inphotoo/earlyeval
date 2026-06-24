@@ -1,14 +1,4 @@
-"""
-评估模块。
-
-生成：
-- 核心指标 (ROC-AUC, PR-AUC, LogLoss, Brier)
-- Calibration 曲线
-- 按 prefix step 分层评估
-- 概率分布图
-- 测试集结构 / 预测与节省步数分布图（直方图、箱线图、hexbin）
-- 特征重要性
-"""
+'Public-release English note.'
 from __future__ import annotations
 
 import json
@@ -32,7 +22,7 @@ logger = get_logger("evaluator")
 
 DEFAULT_DECISION_THRESHOLDS = [0.50, 0.60, 0.70, 0.80, 0.90, 0.95]
 
-# 主模型四件套：逐步准确率表默认输出 D/G/K/N
+# Public-release English note.
 DGKN_MODEL_KEYS = (
     "D_Dense_Full_LR",
     "G_TfIdf_Full_LR",
@@ -51,16 +41,7 @@ def per_step_accuracy_dgkn(
     threshold: float = 0.5,
     models: tuple[str, ...] = DGKN_MODEL_KEYS,
 ) -> pd.DataFrame:
-    """
-    按 prefix_step_idx 聚合，每个 step 一行：
-
-    - mean_prob__*：该 step 上所有样本的**原始预测概率**的均值（单条轨迹时即为该步的真实 p̂）。
-    - accuracy__*：用 decision_threshold 将概率二值化后与 label 比较的准确率（多样本时有统计意义；
-      仅 1 条样本时常为 0 或 1，需结合 mean_prob 看）。
-
-    - y_true 为 None 时使用 df[label_col]（须存在）。
-    - 某模型缺少 prob 列时，对应 mean_prob / accuracy 填 NaN。
-    """
+    'Public-release English note.'
     if step_col not in df.columns:
         raise KeyError(f"missing column {step_col}")
     if y_true is None:
@@ -105,7 +86,7 @@ def per_step_accuracy_dgkn(
     return pd.DataFrame(rows)
 
 
-# Convert 导出用：短列名 → 完整模型键（与 DGKN_MODEL_KEYS 一致）
+# Public-release English note.
 DGKN_SHORT_TO_MODEL = (
     ("D", "D_Dense_Full_LR"),
     ("G", "G_TfIdf_Full_LR"),
@@ -115,7 +96,7 @@ DGKN_SHORT_TO_MODEL = (
 
 
 def _step_content_from_prefix_row(row: pd.Series, max_chars: int = 12000) -> str:
-    """该 prefix 深度下「当前步」可读文本：preamble 或 last thought/action/feedback。"""
+    'Public-release English note.'
     idx = int(row.get("prefix_step_idx", 0) or 0)
     task = str(row.get("task_prompt_text", "") or "").strip()
     thought = str(row.get("last_thought_text", "") or "").strip()
@@ -123,9 +104,9 @@ def _step_content_from_prefix_row(row: pd.Series, max_chars: int = 12000) -> str
     feedback = str(row.get("last_feedback_text", "") or "").strip()
 
     if idx == 0:
-        parts = ["[idx=0: 仅 preamble，尚无 action step]"]
+        parts = ['Public-release English note.']
         if task:
-            parts.append(f"[task / 指令摘录]\n{task[: min(6000, len(task))]}")
+            parts.append('Public-release English note.')
     else:
         parts = []
         if thought:
@@ -135,7 +116,7 @@ def _step_content_from_prefix_row(row: pd.Series, max_chars: int = 12000) -> str
         if feedback:
             parts.append(f"[last feedback]\n{feedback}")
         if not parts:
-            parts.append("(无 last_* 文本字段)")
+            parts.append('Public-release English note.')
     text = "\n\n".join(parts)
     if len(text) > max_chars:
         text = text[: max_chars - 24].rstrip() + "\n...(truncated)"
@@ -150,12 +131,7 @@ def per_step_dgkn_convert_export(
     max_content_chars: int = 12000,
     drop_traj_if_single: bool = True,
 ) -> pd.DataFrame:
-    """
-    供 convert 结果目录使用：每行对应一个 prefix 深度。
-
-    列：traj_id（可选）、idx、p_D、p_G、p_K、p_N、step_content
-    需要 df 中已有 prob 列及 prefix 文本列（task_prompt_text、last_*）。
-    """
+    'Public-release English note.'
     if step_col not in df.columns:
         raise KeyError(f"missing {step_col}")
 
@@ -189,10 +165,7 @@ def per_step_dgkn_convert_export(
 
 
 def instance_id_to_repo_key(instance_id: str) -> str:
-    """
-    SWE-bench 风格 instance_id，如 django__django-12345 → 题库前缀 django；
-    matplotlib__matplotlib-999 → matplotlib。用于按「题目类型 / 仓库族」分层看 AUC。
-    """
+    'Public-release English note.'
     s = (instance_id or "").strip()
     if not s:
         return "_empty"
@@ -211,12 +184,9 @@ def compute_stratified_metrics_by_repo(
     min_neg: int = 5,
     all_rank_for_auc: dict[str, np.ndarray] | None = None,
 ) -> pd.DataFrame:
-    """
-    按 instance_id 推导的 repo_key 分层，对 each 模型计算 prefix 级指标。
-    样本量过小或缺正负类的层跳过（避免 AUC 无定义或极不稳）。
-    """
+    'Public-release English note.'
     if "instance_id" not in df.columns or "label" not in df.columns:
-        logger.warning("stratified-by-repo: 缺少 instance_id 或 label，跳过")
+        logger.warning('Public-release English note.')
         return pd.DataFrame()
     n_rows = len(df)
     if n_rows == 0:
@@ -273,14 +243,14 @@ def build_stratified_repo_report_lines(
     highlight_models: tuple[str, ...] = ("I_LightGBM_Dense_AF", "A_Dense_LR"),
     top_repos: int = 30,
 ) -> list[str]:
-    """生成写入 evaluation_report 的一小段 Markdown 风格文本行。"""
+    'Public-release English note.'
     if df_long is None or df_long.empty:
         return []
     lines: list[str] = [
         "## Stratified by SWE repo (instance_id prefix)",
         "",
-        "  `repo_key` = `instance_id` 中第一个 `__` 之前的段（例：`django__django-123` → `django`）。",
-        "  以下为 **prefix 行级** 指标；仅列出各 repo 样本量足够的层（详见 `metrics_by_repo.csv`）。",
+        'Public-release English note.',
+        'Public-release English note.',
         "",
     ]
     for hm in highlight_models:
@@ -288,7 +258,7 @@ def build_stratified_repo_report_lines(
         if sub.empty:
             continue
         sub = sub.sort_values("n_samples", ascending=False).head(int(top_repos))
-        lines.append(f"### {hm} — by repo (top {len(sub)} by N)")
+        lines.append(f"### {hm} - by repo (top {len(sub)} by N)")
         lines.append("")
         hdr = (
             f"{'repo_key':<30} {'ROC-AUC':>8} {'PR-AUC':>8} {'N':>8} "
@@ -324,14 +294,7 @@ def compute_metrics(
     *,
     y_rank_for_auc: np.ndarray | None = None,
 ) -> dict:
-    """
-    计算核心指标。
-
-    y_rank_for_auc:
-        若提供，则 ROC-AUC / PR-AUC 使用该分数排序（例如 LR 的 decision_function），
-        避免 predict_proba 下溢成全 0 时 tie 过多低估区分度。
-        log_loss / brier 仍用 y_prob（并对概率做 clip 防 0/1 炸 log）。
-    """
+    'Public-release English note.'
     metrics = {}
     y_true = np.asarray(y_true, dtype=np.float64)
     y_prob = np.asarray(y_prob, dtype=np.float64)
@@ -348,7 +311,7 @@ def compute_metrics(
         metrics["pr_auc"] = float(average_precision_score(y_true, scores))
     except ValueError:
         metrics["pr_auc"] = None
-    # 小样本或单桶内可能只有一类标签；sklearn log_loss 需显式 labels=[0,1]，否则抛 ValueError
+    # Public-release English note.
     try:
         if len(np.unique(y_true)) < 2:
             metrics["log_loss"] = None
@@ -373,19 +336,7 @@ def compute_trajectory_level_savings(
     y_prob: np.ndarray,
     thresholds: list[float] | None = None,
 ) -> list[dict]:
-    """
-    基于完整轨迹计算节省步骤。
-
-    对每条轨迹，从 step 0 顺序扫描：
-    - 当 p >= thr 时，判定为"预测成功"，后续步骤全部节省
-    - 当 p <= 1-thr 时，判定为"预测失败"，后续步骤全部节省
-    - 否则继续到下一步
-
-    返回每个阈值下的：
-    - 轨迹级别的决策统计
-    - 节省步骤数（总、均值、中位数）
-    - 决策正确率（预测成功时实际是否 resolved, 预测失败时实际是否 unresolved）
-    """
+    'Public-release English note.'
     thresholds = thresholds or DEFAULT_DECISION_THRESHOLDS
 
     df = df_test.copy()
@@ -492,24 +443,7 @@ def compute_trajectory_savings_at_precision_levels(
     precision_levels: list[float] | None = None,
     search_thresholds: np.ndarray | None = None,
 ) -> dict:
-    """
-    分别按 Prec(S) 与 Prec(F) 约束选阈值（不要求二者同时满足同一目标）。
-
-    **非对称规则**（不再使用「同一 thr + 失败用 p≤1−thr」）：
-    从左扫描每条轨迹前缀，**先**判「成功侧」**再**判「失败侧」：
-    - 若先出现 ``p >= thr_success`` → 成功侧早停；
-    - 否则若先出现 ``p <= p_fail_max`` → 失败侧早停；
-    - 否则继续下一步；若整条轨迹从未触发 → **未决**（不记入节省，AllSave 可 <100%）。
-
-    - 扫 **Thr_S**（Prec(S)≥t）时，失败侧固定用 ``p_fail_max = config.PRECISION_SAVINGS_ANCHOR_P_FAIL``。
-    - 扫 **P_fail**（Prec(F)≥t）时，成功侧固定用 ``thr_success = config.PRECISION_SAVINGS_ANCHOR_THR_SUCCESS``；
-      在**所有**满足 Prec(F)≥t 的网格点上取 **总节省 saving_ratio 最大** 的 P_fail（步数最多；不再「第一个满足就停」）。
-    - **联合（双精确度）**：在 ``(Thr_S, P_fail)`` 全网格上仿真，取**同时**满足联合规则下
-      ``Prec(S)≥t`` 且 ``Prec(F)≥t``（且两侧均有决策）的配对中 **saving_ratio 最大**者。
-      不再把「正向锚点下最优 Thr_S」与「负向锚点下最优 P_fail」硬拼（硬拼会破坏另一侧精确度）。
-
-    ``by_precision_joint`` 仍为**对称**单 thr 的遗留约束（Prec(S) 与 Prec(F) 同时≥t），仅供对比。
-    """
+    'Public-release English note.'
     precision_levels = precision_levels or [0.50, 0.60, 0.70, 0.80, 0.90, 0.95]
     if search_thresholds is None:
         lo = float(getattr(config, "PRECISION_SAVINGS_THR_GRID_START", 0.05))
@@ -517,7 +451,7 @@ def compute_trajectory_savings_at_precision_levels(
         stp = float(getattr(config, "PRECISION_SAVINGS_THR_GRID_STEP", 0.005))
         search_thresholds = np.arange(lo, hi, stp)
 
-    # 预构建每条轨迹的 (step, prob) 数组，避免对每个阈值重复 groupby + iterrows（极慢）
+    # Public-release English note.
     traj_ids = df_test["traj_id"].to_numpy()
     steps = df_test["prefix_step_idx"].to_numpy(dtype=np.int64)
     labels = df_test["label"].to_numpy(dtype=np.int64)
@@ -620,7 +554,7 @@ def compute_trajectory_savings_at_precision_levels(
         f_hit_rate = corr_fail / n_trajs_f if n_trajs_f > 0 else None
         share_s = saved_steps_succ_branch / total_steps if total_steps > 0 else 0.0
         share_f = saved_steps_fail_branch / total_steps if total_steps > 0 else 0.0
-        # 按轨迹真标签分母：AllSave = (Ts/T)*正省/Ts + (Tf/T)*负省/Tf（加权平均，故 AllSave 介于二者之间）。
+        # Public-release English note.
         share_succ_vs_ts = (
             saved_steps_on_success_label_trajs / total_steps_label_success
             if total_steps_label_success > 0
@@ -672,7 +606,7 @@ def compute_trajectory_savings_at_precision_levels(
         }
 
     def _eval_at_threshold_symmetric(thr: float) -> dict:
-        """对称单 thr：失败界 p<=1−thr。仅用于 by_precision_joint。"""
+        'Public-release English note.'
         total_trajs = 0
         decided = 0
         succ_dec = 0
@@ -768,7 +702,7 @@ def compute_trajectory_savings_at_precision_levels(
     all_evals_s = [_eval_asymmetric(float(t), anchor_fail) for t in search_thresholds]
 
     def _best_asym_s_for_target(target_prec: float) -> dict | None:
-        """在满足 Prec(S)≥target 的候选中，使总省步/T（saving_ratio）最大；并列时优先成支省步、再取较大 Thr_S。"""
+        'Public-release English note.'
         feas = [
             dict(ev)
             for ev in all_evals_s
@@ -796,7 +730,7 @@ def compute_trajectory_savings_at_precision_levels(
             picked["constraint"] = "Prec(S)>="
             picked["threshold"] = picked["threshold_s"]
             picked["fixed_failure_p_max"] = anchor_fail
-            # 曲线图「正向」纵轴：该 Target 下最优 Thr 的总节省率（与负向曲线同为 saving_ratio 口径）
+            # Public-release English note.
             picked["column_total_share"] = float(picked["saving_ratio"])
             by_ps.append(picked)
         else:
@@ -810,7 +744,7 @@ def compute_trajectory_savings_at_precision_levels(
     all_evals_f = [_eval_asymmetric(anchor_succ, float(pf)) for pf in failure_p_grid]
 
     def _best_asym_f_for_target(target_prec: float) -> dict | None:
-        """在满足 Prec(F)≥target 的候选中，使总省步/T 最大；并列时优先负向分支省步、再优先更宽松的 P_fail。"""
+        'Public-release English note.'
         feas = [
             dict(ev)
             for ev in all_evals_f
@@ -856,7 +790,7 @@ def compute_trajectory_savings_at_precision_levels(
                 return dict(ev)
         return None
 
-    # 双约束：对称单 thr 上 Prec(S) 与 Prec(F) 同时 ≥ target（遗留对比用）
+    # Public-release English note.
     by_pj = []
     for target_prec in precision_levels:
         picked = _first_sym(
@@ -883,7 +817,7 @@ def compute_trajectory_savings_at_precision_levels(
                 ),
             })
 
-    # 联合：网格上找 (Thr_S, P_fail) 使联合规则下 Prec(S)≥t 且 Prec(F)≥t，且总省/T 最大
+    # Public-release English note.
     all_pair_evals: list[dict] = []
     for ts in search_thresholds:
         for pf in failure_p_grid:
@@ -927,8 +861,8 @@ def compute_trajectory_savings_at_precision_levels(
                 "threshold_f": None,
                 "failure_p_max": None,
                 "note": (
-                    f"网格内无 (Thr_S,P_fail) 使联合规则下同时 Prec(S)>={target_prec} 且 Prec(F)>={target_prec} "
-                    "（需两侧均有决策）"
+                    'Public-release English note.'
+                    'Public-release English note.'
                 ),
             })
 
@@ -964,7 +898,7 @@ def compute_bucketed_metrics(
     step_indices: np.ndarray,
     y_rank_for_auc: np.ndarray | None = None,
 ) -> list[dict]:
-    """按 prefix step 分桶评估。"""
+    'Public-release English note.'
     results = []
     for bucket_name, lo, hi in config.STEP_BUCKETS:
         mask = (step_indices >= lo) & (step_indices <= hi)
@@ -988,13 +922,7 @@ def compute_threshold_decision_table(
     n_steps_total: np.ndarray,
     thresholds: list[float] | None = None,
 ) -> list[dict]:
-    """
-    双端阈值评估：
-      - 成功端：p >= thr
-      - 失败端：p <= 1-thr
-      - 中间区间：不提前决策
-    并统计“若提前结束”可节省步数。
-    """
+    'Public-release English note.'
     thresholds = thresholds or DEFAULT_DECISION_THRESHOLDS
     results = []
 
@@ -1058,26 +986,7 @@ def compute_feature_group_contribution(
     feature_names: list[str],
     is_lgbm: bool = False,
 ) -> dict:
-    """
-    按特征组分析贡献度。
-
-    特征组定义：
-    - Dense_A: prefix progress / 元信息
-    - Dense_B: last-step 特征
-    - Dense_C: 累计动作计数
-    - Dense_D: milestone / 首次发生
-    - Dense_E: recency / 距离上次
-    - Dense_F: 比例与节奏
-    - Dense_G: observation 错误与测试
-    - Dense_H: 循环 / 风险
-    - Dense_J: cognitive / narrative
-    - Dense_Cat: 分类型 one-hot
-    - TfIdf_task_prompt
-    - TfIdf_action
-    - TfIdf_feedback
-    - TfIdf_thought
-    - TfIdf_assistant_content
-    """
+    'Public-release English note.'
     from feature_engineer import NUMERIC_FEATURES, BOOL_FEATURES
 
     GROUP_A_NUM = {
@@ -1232,10 +1141,7 @@ def plot_calibration(
     save_path: Path,
     y_logit: np.ndarray | None = None,
 ):
-    """
-    绘制校准曲线 + 概率分布；可选第三张为 log-odds（LR 的 decision_function），
-    避免概率全挤在 0 附近时直方图难以分辨。
-    """
+    'Public-release English note.'
     y_true = np.asarray(y_true)
     y_prob = np.asarray(y_prob, dtype=np.float64)
 
@@ -1244,24 +1150,24 @@ def plot_calibration(
     else:
         fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
-    # 校准曲线
+    # Public-release English note.
     ax = axes[0]
     fraction_pos, mean_pred = calibration_curve(y_true, y_prob, n_bins=15, strategy="uniform")
     ax.plot(mean_pred, fraction_pos, "o-", label=model_name)
     ax.plot([0, 1], [0, 1], "k--", label="Perfect calibration")
     ax.set_xlabel("Mean predicted probability")
     ax.set_ylabel("Fraction of positives")
-    ax.set_title(f"Calibration Curve — {model_name}")
+    ax.set_title(f"Calibration Curve - {model_name}")
     ax.legend()
     ax.grid(True, alpha=0.3)
 
-    # 概率分布图
+    # Public-release English note.
     ax = axes[1]
     ax.hist(y_prob[y_true == 0], bins=50, alpha=0.5, label="Negative (unresolved)", density=True)
     ax.hist(y_prob[y_true == 1], bins=50, alpha=0.5, label="Positive (resolved)", density=True)
     ax.set_xlabel("Predicted probability")
     ax.set_ylabel("Density")
-    ax.set_title(f"Probability Distribution — {model_name}")
+    ax.set_title(f"Probability Distribution - {model_name}")
     ax.legend()
     ax.grid(True, alpha=0.3)
 
@@ -1274,7 +1180,7 @@ def plot_calibration(
         ax.hist(lo[m1], bins=50, alpha=0.5, label="Positive (resolved)", density=True)
         ax.set_xlabel("Log-odds (decision_function, pre-sigmoid)")
         ax.set_ylabel("Density")
-        ax.set_title(f"Log-odds Distribution — {model_name}")
+        ax.set_title(f"Log-odds Distribution - {model_name}")
         ax.legend()
         ax.grid(True, alpha=0.3)
 
@@ -1291,7 +1197,7 @@ def plot_roc_pr(
     save_path: Path,
     y_rank_for_auc: np.ndarray | None = None,
 ):
-    """绘制 ROC 和 PR 曲线。"""
+    'Public-release English note.'
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
     scores = (
@@ -1334,7 +1240,7 @@ def plot_metrics_by_step(
     model_name: str,
     save_path: Path,
 ):
-    """绘制各分桶指标随 step 变化的趋势。"""
+    'Public-release English note.'
     valid = [r for r in bucketed_results if not r.get("skipped")]
     if not valid:
         return
@@ -1391,7 +1297,7 @@ def plot_metrics_by_step(
     axes[1, 1].set_title("Sample Count by Step Bucket")
     axes[1, 1].grid(True, alpha=0.3)
 
-    fig.suptitle(f"Step-Bucketed Metrics — {model_name}", fontsize=14)
+    fig.suptitle(f"Step-Bucketed Metrics - {model_name}", fontsize=14)
     plt.tight_layout()
     plt.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close()
@@ -1404,7 +1310,7 @@ def plot_feature_importance_lr(
     top_k: int = 40,
     save_path: Path | None = None,
 ):
-    """绘制 LR 特征重要性（系数绝对值）。"""
+    'Public-release English note.'
     coefs = model.coef_[0]
     abs_coefs = np.abs(coefs)
     top_idx = np.argsort(abs_coefs)[-top_k:][::-1]
@@ -1438,7 +1344,7 @@ def plot_feature_importance_lgbm(
     top_k: int = 40,
     save_path: Path | None = None,
 ):
-    """绘制 LightGBM 特征重要性。"""
+    'Public-release English note.'
     importance = booster.feature_importance(importance_type="gain")
     names = booster.feature_name()
     top_idx = np.argsort(importance)[-top_k:][::-1]
@@ -1471,10 +1377,7 @@ def plot_precision_constraint_savings_curves(
     prec_bundle: dict,
     save_path: Path,
 ) -> bool:
-    """
-    同一图内两条曲线：正向（成功侧精确度达标）与负向（失败侧精确度达标）各自选定 Thr 下的轨迹节省率随目标精确度变化。
-    图内标题、坐标轴、图例为中文；模型名仅作副标题标识。
-    """
+    'Public-release English note.'
     if isinstance(prec_bundle, list) or not prec_bundle:
         return False
     rows_s = prec_bundle.get("by_precision_success") or []
@@ -1520,7 +1423,7 @@ def plot_precision_constraint_savings_curves(
             x_s,
             y_s,
             "o-",
-            label="正向：成功侧精确度达到目标时的节省率",
+            label='Public-release English note.',
             markersize=6,
             color="#1f77b4",
         )
@@ -1529,7 +1432,7 @@ def plot_precision_constraint_savings_curves(
             x_f,
             y_f,
             "s-",
-            label="负向：失败侧精确度达到目标时的节省率",
+            label='Public-release English note.',
             markersize=6,
             color="#ff7f0e",
         )
@@ -1538,13 +1441,13 @@ def plot_precision_constraint_savings_curves(
             x_d,
             y_d,
             "^-",
-            label="联合：Prec(S)与Prec(F)同时≥目标（网格最优省步）",
+            label='Public-release English note.',
             markersize=6,
             color="#2ca02c",
         )
-    ax.set_xlabel("目标精确度")
-    ax.set_ylabel("轨迹节省率（%）")
-    ax.set_title(f"不同精确度约束下的轨迹节省率\n（{model_name}）")
+    ax.set_xlabel('Public-release English note.')
+    ax.set_ylabel('Public-release English note.')
+    ax.set_title('Public-release English note.')
     ax.legend(loc="best", fontsize=9)
     ax.grid(True, alpha=0.3)
     ticks = sorted(set(x_s + x_f + x_d))
@@ -1567,22 +1470,10 @@ def generate_full_report(
     save_dir: Path,
     report_metadata: dict | None = None,
 ):
-    """
-    生成完整的文本评估报告。
-
-    all_results 结构：
-    {
-        "model_name": {
-            "metrics": {...},
-            "bucketed": [...],
-            "threshold_table": [...],
-            "feature_importance": [...],
-        }
-    }
-    """
+    'Public-release English note.'
     report_lines = []
     report_lines.append("=" * 80)
-    report_lines.append("SWE-smith Prefix Success Prediction — Evaluation Report")
+    report_lines.append("SWE-smith Prefix Success Prediction - Evaluation Report")
     report_lines.append("=" * 80)
     report_lines.append("")
     report_lines.append("## Metrics & Threshold Guide")
@@ -1615,7 +1506,7 @@ def generate_full_report(
     report_lines.append("- If it drops heavily, model relied more on task prior difficulty/model identity")
     report_lines.append("")
 
-    # 汇总表
+    # Public-release English note.
     report_lines.append("## Overall Metrics Summary")
     report_lines.append("")
     header = f"{'Model':<35} {'ROC-AUC':>8} {'PR-AUC':>8} {'LogLoss':>8} {'Brier':>8} {'N':>8}"
@@ -1647,14 +1538,14 @@ def generate_full_report(
     report_lines.append("")
     report_lines.append("")
 
-    # 按 instance_id 前缀（题库 / 仓库族）分层 — flat 评测注入
+    # Public-release English note.
     if report_metadata:
         sr = report_metadata.get("stratified_repo_section_lines")
         if sr:
             report_lines.extend(sr)
             report_lines.append("")
 
-    # 关键对照实验总结
+    # Public-release English note.
     def _safe_auc(model_key: str):
         m = all_results.get(model_key, {}).get("metrics", {})
         v = m.get("roc_auc")
@@ -1689,7 +1580,7 @@ def generate_full_report(
         report_lines.append(f"- delta(remove task prompt, LGBM) = {auc_no_task_lgbm - auc_j_lgbm:+.4f} (AUC)")
     report_lines.append("")
 
-    # 每项消融：LR 与配对 LightGBM 同表（若未训练 LGBM 则为空）
+    # Public-release English note.
     abl_lgbm_pairs = [
         ("Abl_DenseOnly_LR", "Abl_DenseOnly_LightGBM"),
         ("Abl_NoThoughtContent_LR", "Abl_NoThoughtContent_LightGBM"),
@@ -1710,17 +1601,17 @@ def generate_full_report(
     for lr_k, lgb_k in abl_lgbm_pairs:
         a_lr = _safe_auc(lr_k)
         a_lgb = _safe_auc(lgb_k)
-        lr_s = f"{a_lr:.4f}" if a_lr is not None else "—"
-        lgb_s = f"{a_lgb:.4f}" if a_lgb is not None else "—"
+        lr_s = f"{a_lr:.4f}" if a_lr is not None else "-"
+        lgb_s = f"{a_lgb:.4f}" if a_lgb is not None else "-"
         if a_lr is not None and a_lgb is not None:
             d_s = f"{a_lgb - a_lr:+.4f}"
         else:
-            d_s = "—"
+            d_s = "-"
         short = lr_k.replace("_LR", "")
         report_lines.append(f"{short:<42} {lr_s:>10} {lgb_s:>10} {d_s:>12}")
     report_lines.append("")
 
-    # 消融 LR vs 同特征 LightGBM（若存在）
+    # Public-release English note.
     abl_pairs = [
         ("Abl_DenseOnly_LR", "Abl_DenseOnly_LightGBM"),
         ("Abl_NoThoughtContent_LR", "Abl_NoThoughtContent_LightGBM"),
@@ -1749,22 +1640,22 @@ def generate_full_report(
             if a_lr is None and a_lgb is None:
                 continue
             d = (a_lgb - a_lr) if (a_lr is not None and a_lgb is not None) else None
-            ds = f"{d:+.4f}" if d is not None else "—"
-            lr_s = f"{a_lr:.4f}" if a_lr is not None else "—"
-            lgb_s = f"{a_lgb:.4f}" if a_lgb is not None else "—"
+            ds = f"{d:+.4f}" if d is not None else "-"
+            lr_s = f"{a_lr:.4f}" if a_lr is not None else "-"
+            lgb_s = f"{a_lgb:.4f}" if a_lgb is not None else "-"
             short = lr_k.replace("_LR", "")
             report_lines.append(f"{short:<42} {lr_s:>10} {lgb_s:>10} {ds:>10}")
         report_lines.append("")
 
-    # 分桶指标
+    # Public-release English note.
     for model_name, result in all_results.items():
         bucketed = result.get("bucketed", [])
         if not bucketed:
             continue
-        report_lines.append(f"## Step-Bucketed Metrics — {model_name}")
+        report_lines.append(f"## Step-Bucketed Metrics - {model_name}")
         report_lines.append("")
         report_lines.append(
-            "  （ROC/PR 在桶内仅一类标签时为 N/A，非 0；+/- 为正负样本数。）"
+            'Public-release English note.'
         )
         header = (
             f"{'Bucket':<15} {'ROC-AUC':>8} {'PR-AUC':>8} {'LogLoss':>8} {'Brier':>8} "
@@ -1803,7 +1694,7 @@ def generate_full_report(
                 report_lines.append(line)
         report_lines.append("")
 
-    # 实现检查结果
+    # Public-release English note.
     checks = (report_metadata or {}).get("implementation_checks", {})
     if checks:
         report_lines.append("## Mixed-Model Implementation Checks")
@@ -1824,12 +1715,12 @@ def generate_full_report(
             report_lines.append(f"- D_Dense_Full_LR n_iter_max: {checks.get('D_Dense_Full_LR_n_iter_max')}")
         report_lines.append("")
 
-    # 轨迹级别的阈值决策与步骤节省（新方法）
+    # Public-release English note.
     for model_name, result in all_results.items():
         traj_rows = result.get("trajectory_savings", [])
         if not traj_rows:
             continue
-        report_lines.append(f"## Trajectory-Level Decision & Savings — {model_name}")
+        report_lines.append(f"## Trajectory-Level Decision & Savings - {model_name}")
         report_lines.append("")
         if traj_rows:
             r0 = traj_rows[0]
@@ -1903,35 +1794,35 @@ def generate_full_report(
     def _append_merged_precision_levels_table(
         model_name: str, rows_s: list, rows_f: list, prec_bundle: dict | None = None
     ):
-        """按 Target：正向/负向在锚点下各选 Prec≥Target 且总省/T 最大；联合为网格上双精确度同时≥Target 且总省/T 最大。"""
-        report_lines.append(f"## Savings at Precision Levels — {model_name}")
+        'Public-release English note.'
+        report_lines.append(f"## Savings at Precision Levels - {model_name}")
         report_lines.append("")
         report_lines.append(
-            "  **p**：模型给出的前缀成功概率。逐步：**先**若 **p≥Thr_S** → 成功侧早停；**否则**若 **p≤P_fail** → 失败侧早停；否则继续。"
+            'Public-release English note.'
         )
         report_lines.append(
-            "  **正向（单独优选）**：固定锚点 **P_fail**，在满足 **Prec(S)≥Target** 的 **Thr_S** 中取 **总节省步÷T** 最大者；"
-            "行内 **成支覆盖** = 真标签为**成功类**的轨迹中、**先**触发成功支早停的条数 **÷ Ns**（成功类轨迹总数），"
-            "与 Prec(S) 的类内口径一致；另给 **成支Δ** 及 **÷T**（分母为全量总步数 **T**）。"
+            'Public-release English note.'
+            'Public-release English note.'
+            'Public-release English note.'
         )
         report_lines.append(
-            "  **负向（单独优选）**：固定锚点 **Thr_S**，在满足 **Prec(F)≥Target** 的 **P_fail** 中取 **总省÷T** 最大；"
-            "行内 **败支覆盖** = 真标签为**失败类**轨迹中、**先**触发失败支早停的条数 **÷ Nf**；以及 **败支Δ**、**÷T**。"
+            'Public-release English note.'
+            'Public-release English note.'
         )
         report_lines.append(
-            "  **联合（双精确度）**：在 **(Thr_S, P_fail)** 网格上联合仿真，取 **Prec(S)≥Target 且 Prec(F)≥Target**（两侧均有决策）"
-            "的配对中 **总省÷T 最大**者（**不是**把上两行阈值硬拼）。"
-            "**联Ts省 / 联Tf省 / 联总** 及 **÷T**、**已决**、**AllHit** 均对应该配对；故 **联合 Prec(S)、Prec(F) 均 ≥ Target**（显示值为网格上实现值，略高于下界）。"
+            'Public-release English note.'
+            'Public-release English note.'
+            'Public-release English note.'
         )
         anc = (prec_bundle or {}).get("_anchors") or {}
         pfa = anc.get("p_fail_fixed_for_success_scan")
         tsa = anc.get("thr_success_fixed_for_failure_scan")
         if pfa is not None and tsa is not None:
             report_lines.append(
-                f"  **锚点**：扫 Thr_S 时固定 P_fail={pfa}；扫 P_fail 时固定 Thr_S={tsa}。"
+                'Public-release English note.'
             )
         report_lines.append(
-            "  曲线 `precision_savings_curve_<model>.png`：纵轴为各 Target 下单独优选策略的 **总** 节省率（saving_ratio）。"
+            'Public-release English note.'
         )
         report_lines.append("")
 
@@ -1957,7 +1848,7 @@ def generate_full_report(
         def _pct_saved(saved: int, ttot: int) -> tuple[str, str]:
             if ttot and ttot > 0:
                 return str(int(saved)), f"{100.0 * float(saved) / float(ttot):.2f}%"
-            return str(int(saved)), "—"
+            return str(int(saved)), "-"
 
         for t in all_targets:
             rs = by_t_s.get(t)
@@ -1967,7 +1858,7 @@ def generate_full_report(
             if rs and rs.get("threshold") is not None:
                 ts_v = float(rs.get("threshold_s", rs["threshold"]))
                 ps = rs.get("precision_success")
-                ps_txt = f"{float(ps) * 100:.2f}%" if ps is not None else "—"
+                ps_txt = f"{float(ps) * 100:.2f}%" if ps is not None else "-"
                 t_r = int(rs.get("total_steps") or T_global or 0)
                 s_br = int(rs.get("saved_steps_via_success_branch", 0))
                 s_n, s_pct = _pct_saved(s_br, t_r)
@@ -1977,20 +1868,20 @@ def generate_full_report(
                     ns = ds.get("count_trajs_label_success")
                 ns_i = int(ns) if ns is not None else 0
                 cs_i = int(cs) if cs is not None else 0
-                cov_s = f"{100.0 * cs_i / ns_i:.1f}%" if ns_i > 0 else "—"
+                cov_s = f"{100.0 * cs_i / ns_i:.1f}%" if ns_i > 0 else "-"
                 pos_line = (
                     f"Thr_S={ts_v:.4f}  Prec(S)={ps_txt}  "
-                    f"成支覆盖={cs_i}条/成功类Ns={ns_i}条({cov_s})  "
-                    f"成支Δ={s_n}步  成支Δ/T={s_pct}"
+                    'Public-release English note.'
+                    'Public-release English note.'
                 )
             else:
                 _n = (rs.get("note") or "").replace("\n", " ").strip() if rs else ""
-                pos_line = f"—{'（' + _n + '）' if _n else ''}"
+                pos_line = f"-{'(' + _n + ')' if _n else ''}"
 
             if rf and rf.get("threshold") is not None:
                 pf_v = float(rf.get("failure_p_max", rf.get("threshold_f", rf["threshold"])))
                 pff = rf.get("precision_failure")
-                pf_txt = f"{float(pff) * 100:.2f}%" if pff is not None else "—"
+                pf_txt = f"{float(pff) * 100:.2f}%" if pff is not None else "-"
                 t_f = int(rf.get("total_steps") or T_global or 0)
                 f_br = int(rf.get("saved_steps_via_failure_branch", 0))
                 f_n, f_pct = _pct_saved(f_br, t_f)
@@ -2000,15 +1891,15 @@ def generate_full_report(
                     nf_ = ds.get("count_trajs_label_failure")
                 nf_i = int(nf_) if nf_ is not None else 0
                 cf_i = int(cf) if cf is not None else 0
-                cov_f = f"{100.0 * cf_i / nf_i:.1f}%" if nf_i > 0 else "—"
+                cov_f = f"{100.0 * cf_i / nf_i:.1f}%" if nf_i > 0 else "-"
                 neg_line = (
                     f"P_fail={pf_v:.4f}  Prec(F)={pf_txt}  "
-                    f"败支覆盖={cf_i}条/失败类Nf={nf_i}条({cov_f})  "
-                    f"败支Δ={f_n}步  败支Δ/T={f_pct}"
+                    'Public-release English note.'
+                    'Public-release English note.'
                 )
             else:
                 _n = (rf.get("note") or "").replace("\n", " ").strip() if rf else ""
-                neg_line = f"—{'（' + _n + '）' if _n else ''}"
+                neg_line = f"-{'(' + _n + ')' if _n else ''}"
 
             pf_dual = rd.get("failure_p_max") if rd else None
             if pf_dual is None and rd:
@@ -2023,33 +1914,33 @@ def generate_full_report(
                 pf_j = float(pf_dual)
                 ps_j = rd.get("precision_success")
                 pf_jj = rd.get("precision_failure")
-                pss = f"{float(ps_j) * 100:.2f}%" if ps_j is not None else "—"
-                pfs = f"{float(pf_jj) * 100:.2f}%" if pf_jj is not None else "—"
+                pss = f"{float(ps_j) * 100:.2f}%" if ps_j is not None else "-"
+                pfs = f"{float(pf_jj) * 100:.2f}%" if pf_jj is not None else "-"
                 t_j = int(rd.get("total_steps") or T_global or 0)
                 sj_ts = int(rd.get("saved_steps_on_success_label_trajs", 0))
                 sj_tf = int(rd.get("saved_steps_on_failure_label_trajs", 0))
                 tot_s = int(rd.get("total_saved_steps", sj_ts + sj_tf))
                 dr = rd.get("decided_ratio")
-                dr_txt = f"{float(dr) * 100:.1f}%" if dr is not None else "—"
+                dr_txt = f"{float(dr) * 100:.1f}%" if dr is not None else "-"
                 dec_j = int(rd.get("decided_trajs", 0))
                 nt_j = int(rd.get("total_trajs") or ds.get("total_trajs") or 0)
-                decided_txt = f"{dec_j}/{nt_j}条({dr_txt})" if nt_j > 0 else dr_txt
+                decided_txt = 'Public-release English note.' if nt_j > 0 else dr_txt
                 a_n, a_pct = _pct_saved(sj_ts, t_j)
                 b_n, b_pct = _pct_saved(sj_tf, t_j)
                 c_n, c_pct = _pct_saved(tot_s, t_j)
                 ht = rd.get("trajectory_hit_rate")
-                hit_txt = f"{float(ht) * 100:.2f}%" if ht is not None else "—"
+                hit_txt = f"{float(ht) * 100:.2f}%" if ht is not None else "-"
                 joint_line = (
-                    f"Thr_S={ts_j:.4f} P_fail={pf_j:.4f}  联合Prec(S)={pss} Prec(F)={pfs}  已决={decided_txt}  "
-                    f"联Ts省={a_n}步({a_pct}) 联Tf省={b_n}步({b_pct}) 联总={c_n}步({c_pct})  AllHit={hit_txt}"
+                    'Public-release English note.'
+                    'Public-release English note.'
                 )
             else:
-                joint_line = "—（该 Target 下网格内无双阈值使联合 Prec(S)、Prec(F) 同时≥Target）"
+                joint_line = 'Public-release English note.'
 
             report_lines.append(f"  ── Target = {t:.2f} ─────────────────────────────────────────────")
-            report_lines.append(f"    正向（单独优选）│ {pos_line}")
-            report_lines.append(f"    负向（单独优选）│ {neg_line}")
-            report_lines.append(f"    联合（双精确度）│ {joint_line}")
+            report_lines.append('Public-release English note.')
+            report_lines.append('Public-release English note.')
+            report_lines.append('Public-release English note.')
             report_lines.append("")
 
         ref = None
@@ -2079,24 +1970,24 @@ def generate_full_report(
         if ntot is None and ref is not None:
             ntot = ref.get("total_trajs")
         report_lines.append(
-            f"  （数据集）Ns={ns if ns is not None else '—'}  Nf={nf if nf is not None else '—'}  "
-            f"总轨迹={ntot if ntot is not None else '—'}  "
-            f"T={ts if ts is not None else '—'}  Ts={tss if tss is not None else '—'}  "
-            f"Tf={tsf if tsf is not None else '—'} ；**Δ/T** 分母为 **T**；"
-            f"正向/负向行的 **成支覆盖/败支覆盖** 分母分别为 **Ns、Nf**（联合行「已决」仍以总轨迹为分母）。"
+            'Public-release English note.'
+            'Public-release English note.'
+            f"T={ts if ts is not None else '-'}  Ts={tss if tss is not None else '-'}  "
+            'Public-release English note.'
+            'Public-release English note.'
         )
         report_lines.append("")
 
-    # 按精确度水平报告：Prec(S) 与 Prec(F) 各选阈值 → 合并为一张表（Thr_S | Thr_F）
+    # Public-release English note.
     for model_name, result in all_results.items():
         prec_bundle = result.get("precision_level_savings") or {}
         if isinstance(prec_bundle, list):
-            # 兼容旧版（单表 list，仅一个 thr / target，无法还原 Thr_S 与 Thr_F）
+            # Public-release English note.
             if not prec_bundle:
                 continue
             _append_precision_constraint_table(
-                f"## Savings at Precision Levels (legacy single-threshold) — {model_name}",
-                "(旧 JSON：每目标仅一条 thr；请重跑完整评估以写入 Thr_S + Thr_F 合并表)",
+                f"## Savings at Precision Levels (legacy single-threshold) - {model_name}",
+                'Public-release English note.',
                 prec_bundle,
             )
             continue
@@ -2107,15 +1998,15 @@ def generate_full_report(
         _append_merged_precision_levels_table(model_name, rows_s, rows_f, prec_bundle)
         fig_path = save_dir / f"precision_savings_curve_{model_name}.png"
         if plot_precision_constraint_savings_curves(model_name, prec_bundle, fig_path):
-            report_lines.append(f"  （图）`{fig_path.name}`：正向与负向约束下节省率随目标精确度变化（中文图注）。")
+            report_lines.append('Public-release English note.')
             report_lines.append("")
 
-    # 旧版逐样本阈值决策表（保留参考）
+    # Public-release English note.
     for model_name, result in all_results.items():
         rows = result.get("threshold_table", [])
         if not rows:
             continue
-        report_lines.append(f"## [Legacy] Sample-Level Threshold Decision — {model_name}")
+        report_lines.append(f"## [Legacy] Sample-Level Threshold Decision - {model_name}")
         report_lines.append("")
         header = (
             f"{'Thr':>5} {'Decide%':>8} {'Succ%':>8} {'Fail%':>8} "
@@ -2139,12 +2030,12 @@ def generate_full_report(
             report_lines.append(line)
         report_lines.append("")
 
-    # 特征组贡献度分析
+    # Public-release English note.
     for model_name, result in all_results.items():
         fg = result.get("feature_group_contribution", {})
         if not fg:
             continue
-        report_lines.append(f"## Feature Group Contribution — {model_name}")
+        report_lines.append(f"## Feature Group Contribution - {model_name}")
         report_lines.append("")
         header = f"{'Group':<35} {'TotalImp':>10} {'Share%':>8} {'#Feats':>7}"
         report_lines.append(header)
@@ -2160,12 +2051,12 @@ def generate_full_report(
             report_lines.append(line)
         report_lines.append("")
 
-    # 特征重要性（Top 特征）
+    # Public-release English note.
     for model_name, result in all_results.items():
         fi = result.get("feature_importance", [])
         if not fi:
             continue
-        report_lines.append(f"## Top Features — {model_name}")
+        report_lines.append(f"## Top Features - {model_name}")
         report_lines.append("")
         for fname, fval in fi[:30]:
             report_lines.append(f"  {fname:<60} {fval:>+10.4f}")
@@ -2173,17 +2064,17 @@ def generate_full_report(
 
     report_text = "\n".join(report_lines)
 
-    # 保存
+    # Public-release English note.
     report_path = save_dir / "evaluation_report.txt"
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(report_text)
     logger.info(f"Evaluation report saved to {report_path}")
 
-    # 同时保存 JSON
+    # Public-release English note.
     json_path = save_dir / "evaluation_results.json"
     save_json(all_results, json_path)
 
-    # CSV 汇总
+    # Public-release English note.
     rows = []
     for model_name, result in all_results.items():
         m = result.get("metrics", {})

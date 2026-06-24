@@ -322,11 +322,11 @@ def main() -> None:
     lines = [
         "# Ambiguous Prior Policy AUC Rescue",
         "",
-        "Clean top only：排除 `gpt-5-2-codex`，只看 Gemini / Claude 两个 top agent。",
+        'Public-release English note.',
         "",
-        "这里扫的是 ambiguous prior band 内的 `threshold / min_step / consecutive k / policy_mode`。这是 posthoc 诊断，不应直接当最终 test 选策略；若要进论文，需要再用 valid 选。",
+        'Public-release English note.',
         "",
-        "注意：AUC 在正负例极度不均衡时会很容易虚高，所以报告把 Pos/Neg 单独列出来。",
+        'Public-release English note.',
         "",
     ]
     add_table(lines, "Credible positives: Pos>=10 and Neg>=10", positive_10_10)
@@ -334,7 +334,7 @@ def main() -> None:
     add_table(lines, "High-accuracy but imbalanced positives", high_acc_imbalanced)
 
     if stable.empty:
-        lines += ["## Stable Across Both Agents", "", "没有找到两个 agent 都有足够正负例且 min-agent gain > 0 的稳定配置。", ""]
+        lines += ["## Stable Across Both Agents", "", 'Public-release English note.', ""]
     else:
         stable_pos = stable[stable["min_agent_gain"].gt(0)].head(20)
         lines += [

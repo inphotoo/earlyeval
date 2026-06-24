@@ -1,13 +1,4 @@
-"""
-Step 重建器。
-
-按照文档 §3 的规则，将每条轨迹的 messages 列表重建为 step 序列。
-
-Step 边界定义：
-- preamble (step_idx=0): 第一条 assistant action 之前的消息
-- 正式 step (step_idx>=1): 每遇到一个 role=assistant + message_type=action 就开新 step
-  该 step 包含 action message 本身 + 后续的 tool/observation 消息
-"""
+'Public-release English note.'
 from __future__ import annotations
 
 import glob
@@ -28,32 +19,19 @@ logger = get_logger("step_builder")
 
 
 def _iter_tool_parquet_files(input_dir: str) -> list[str]:
-    """
-    遍历输入目录中的 parquet 文件。
-
-    优先级：
-    1. 如果 input_dir 是文件：直接返回
-    2. 查找 tool-*.parquet 文件
-    3. fallback: 查找所有 *.parquet 文件
-    """
+    'Public-release English note.'
     p = Path(input_dir)
     if p.is_file():
         return [str(p)]
     files = sorted(glob.glob(str(p / "tool-*.parquet")))
     if not files:
-        # fallback: 尝试所有 parquet
+        # Public-release English note.
         files = sorted(glob.glob(str(p / "*.parquet")))
     return files
 
 
 def _build_instance_dedup_key(df: pd.DataFrame) -> pd.Series:
-    """
-    构建用于全局去重的 key。
-
-    规则：
-    - instance_id 非空：使用 instance_id（跨文件全局唯一约束）
-    - instance_id 为空：回退到 traj_id，避免把缺失值错误地合并到一条
-    """
+    'Public-release English note.'
     if "instance_id" not in df.columns:
         raise KeyError("input data does not contain `instance_id` column")
 
@@ -68,12 +46,7 @@ def _load_and_deduplicate_trajectories(
     input_dir: str,
     dedup_seed: Optional[int] = None,
 ) -> pd.DataFrame:
-    """
-    读取所有 tool parquet，并在最前面做全局 instance_id 去重。
-
-    若同一个 instance_id 出现多条轨迹，则使用固定随机种子随机保留 1 条，
-    保证可复现，且从源头消除 train/test instance 泄漏风险。
-    """
+    'Public-release English note.'
     parquet_files = _iter_tool_parquet_files(input_dir)
     if not parquet_files:
         raise FileNotFoundError(f"No tool-*.parquet files found in {input_dir}")
@@ -83,7 +56,7 @@ def _load_and_deduplicate_trajectories(
     required_cols = {"messages", "traj_id"}
     for pf in parquet_files:
         df_part = pd.read_parquet(pf)
-        # 仅接收“原始轨迹 parquet”，跳过 step/prefix 等中间产物 parquet
+        # Public-release English note.
         if not required_cols.issubset(set(df_part.columns)):
             logger.info(
                 f"  {Path(pf).name}: skipped (not a raw trajectory parquet, "
@@ -158,7 +131,7 @@ def _parse_messages(raw) -> list[dict]:
 
 
 def _extract_text(content) -> str:
-    """从 content 字段提取文本。"""
+    'Public-release English note.'
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -183,7 +156,7 @@ def _is_action_message(msg: dict) -> bool:
 
 
 def _word_overlap(text_a: str, text_b: str) -> float:
-    """两段文本的 Jaccard 词汇重合度。"""
+    'Public-release English note.'
     if not text_a or not text_b:
         return 0.0
     sa, sb = set(text_a.lower().split()), set(text_b.lower().split())
@@ -193,7 +166,7 @@ def _word_overlap(text_a: str, text_b: str) -> float:
 
 
 def _text_nearly_equal(a: str, b: str, threshold: float = 0.9) -> bool:
-    """判断两段文本是否几乎相同（Jaccard >= threshold）。"""
+    'Public-release English note.'
     if not a.strip() and not b.strip():
         return True
     if not a.strip() or not b.strip():
@@ -202,12 +175,7 @@ def _text_nearly_equal(a: str, b: str, threshold: float = 0.9) -> bool:
 
 
 def rebuild_steps_for_trajectory(row: pd.Series) -> list[dict]:
-    """
-    为一条轨迹重建 step 列表。
-
-    Returns:
-        list[dict]  每个 dict 是一个 step 的结构化信息
-    """
+    'Public-release English note.'
     traj_id = row.get("traj_id", "")
     instance_id = row.get("instance_id", "")
     resolved = bool(row.get("resolved", False))
@@ -215,18 +183,18 @@ def rebuild_steps_for_trajectory(row: pd.Series) -> list[dict]:
 
     messages = _parse_messages(row["messages"])
 
-    # ── 找到所有 action message 的索引 ──
+    # Public-release English note.
     action_indices = [i for i, m in enumerate(messages) if _is_action_message(m)]
 
     if not action_indices:
-        # 没有 action，只有 preamble
+        # Public-release English note.
         return []
 
     steps = []
 
     for pos, act_idx in enumerate(action_indices):
         step_idx = pos + 1
-        # step 结束位置：下一个 action 之前或 messages 末尾
+        # Public-release English note.
         if pos + 1 < len(action_indices):
             end_idx = action_indices[pos + 1]
         else:
@@ -235,12 +203,12 @@ def rebuild_steps_for_trajectory(row: pd.Series) -> list[dict]:
         act_msg = messages[act_idx]
         following = messages[act_idx + 1: end_idx]
 
-        # ── 提取 action 内容 ──
+        # Public-release English note.
         thought_text = act_msg.get("thought", "") or ""
         action_text = act_msg.get("action", "") or ""
         content_text = _extract_text(act_msg.get("content"))
 
-        # ── thought / content 低维统计 ──
+        # Public-release English note.
         has_thought = bool(thought_text.strip())
         has_content = bool(content_text.strip())
         thought_char_len = len(thought_text)
@@ -249,7 +217,7 @@ def rebuild_steps_for_trajectory(row: pd.Series) -> list[dict]:
         thought_action_overlap = _word_overlap(thought_text, action_text)
         content_action_overlap = _word_overlap(content_text, action_text)
 
-        # ── 分类 ──
+        # Public-release English note.
         major_type, subtypes, primary_subtype = classify_action(action_text)
 
         # ── tool calls ──
@@ -277,13 +245,13 @@ def rebuild_steps_for_trajectory(row: pd.Series) -> list[dict]:
         observation_text = "\n".join(observation_parts)
         combined_feedback = (tool_output_text + "\n" + observation_text).strip()
 
-        # ── observation 信号 ──
+        # Public-release English note.
         sig = parse_observation(combined_feedback)
 
         step = {
             "traj_id": traj_id,
             "instance_id": instance_id,
-            # 与 prefix_table 对齐：按 trajectory 分组，避免 instance 多轨迹混组。
+            # Public-release English note.
             "group_id": traj_id,
             "resolved": int(resolved),
             "model": model,
@@ -311,7 +279,7 @@ def rebuild_steps_for_trajectory(row: pd.Series) -> list[dict]:
             "last_fail_count_this_step": sig.fail_count,
             "action_char_len": len(action_text),
             "feedback_char_len": len(combined_feedback),
-            # ── 新增：thought / assistant_content 低维统计 ──
+            # Public-release English note.
             "thought_char_len": thought_char_len,
             "assistant_content_char_len": content_char_len,
             "has_thought_text": has_thought,
@@ -331,13 +299,7 @@ def _apply_max_trajectories_limit(
     *,
     sample_trajectories_seed: Optional[int] = None,
 ) -> pd.DataFrame:
-    """
-    在去重后的轨迹表上应用条数上限。
-
-    sample_trajectories_seed:
-        若提供，先用该种子打乱行顺序再取前 N 条（可复现的随机子集）；
-        若为 None，则保持去重后的原有顺序，取前 N 条。
-    """
+    'Public-release English note.'
     if max_trajectories is None or max_trajectories <= 0:
         return traj_df
     n0 = len(traj_df)
@@ -359,15 +321,7 @@ def build_step_table(
     max_trajectories: Optional[int] = None,
     sample_trajectories_seed: Optional[int] = None,
 ) -> pd.DataFrame:
-    """
-    读取所有 tool split parquet，重建 step 表。
-
-    max_trajectories:
-        若设置，在去重后仅保留至多 N 条轨迹；顺序默认与去重后一致，或由 sample_trajectories_seed 打乱后再取前 N。
-
-    Returns:
-        pd.DataFrame  step_table
-    """
+    'Public-release English note.'
     input_dir = input_dir or config.PARQUET_INPUT_DIR
     traj_df = _load_and_deduplicate_trajectories(input_dir=input_dir, dedup_seed=config.SPLIT_SEED)
     traj_df = _apply_max_trajectories_limit(
@@ -394,18 +348,18 @@ def build_step_table(
     logger.info(f"Step table shape: {step_df.shape}")
     logger.info(f"Step table columns: {list(step_df.columns)}")
 
-    # ── 验证统计 ──
+    # Public-release English note.
     if len(step_df) > 0:
         n_trajs = step_df["traj_id"].nunique()
         avg_steps = step_df.groupby("traj_id").size().mean()
         logger.info(f"Unique trajectories in step table: {n_trajs}")
         logger.info(f"Average steps per trajectory: {avg_steps:.2f}")
 
-        # 动作分类统计
+        # Public-release English note.
         action_counts = step_df["action_primary_subtype"].value_counts()
         logger.info(f"Action subtype distribution:\n{action_counts.to_string()}")
 
-        # resolved 分布
+        # Public-release English note.
         res_counts = step_df.groupby("traj_id")["resolved"].first().value_counts()
         logger.info(f"Resolved distribution (trajectory level):\n{res_counts.to_string()}")
 
@@ -413,7 +367,7 @@ def build_step_table(
 
 
 def build_preamble_info(row: pd.Series) -> dict:
-    """提取 preamble (step=0) 的信息。"""
+    'Public-release English note.'
     messages = _parse_messages(row["messages"])
     action_indices = [i for i, m in enumerate(messages) if _is_action_message(m)]
 

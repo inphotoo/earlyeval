@@ -1,11 +1,4 @@
-"""
-Observation / feedback 文本解析器。
-
-从 tool output 和 observation 中提取：
-- 错误类型信号
-- 测试结果信号
-- 编辑失败信号
-"""
+'Public-release English note.'
 from __future__ import annotations
 
 import re
@@ -15,8 +8,8 @@ from typing import Optional
 
 @dataclass
 class ObservationSignals:
-    """单条 observation 文本的信号提取结果。"""
-    # 错误类型
+    'Public-release English note.'
+    # Public-release English note.
     traceback_seen: bool = False
     assertion_error: bool = False
     type_error: bool = False
@@ -28,18 +21,18 @@ class ObservationSignals:
     permission_error: bool = False
     tool_error: bool = False
 
-    # 测试结果
+    # Public-release English note.
     test_fail_seen: bool = False
     test_pass_seen: bool = False
     all_tests_passed: bool = False
     fail_count: Optional[int] = None
     pass_count: Optional[int] = None
 
-    # 编辑失败
+    # Public-release English note.
     edit_failed: bool = False
 
 
-# ── 编译正则 ──
+# Public-release English note.
 _RE_TRACEBACK = re.compile(r"Traceback \(most recent call last\)", re.IGNORECASE)
 _RE_ASSERTION = re.compile(r"AssertionError|AssertError", re.IGNORECASE)
 _RE_TYPE_ERR = re.compile(r"TypeError:")
@@ -80,7 +73,7 @@ _RE_EDIT_FAIL = re.compile(
 
 
 def parse_observation(text: Optional[str]) -> ObservationSignals:
-    """从一段反馈文本中提取信号。"""
+    'Public-release English note.'
     sig = ObservationSignals()
     if not text:
         return sig
@@ -96,7 +89,7 @@ def parse_observation(text: Optional[str]) -> ObservationSignals:
     sig.permission_error = bool(_RE_PERMISSION.search(text))
     sig.tool_error = bool(_RE_TOOL_ERROR.search(text))
 
-    # 测试结果
+    # Public-release English note.
     sig.test_fail_seen = bool(_RE_TEST_FAILED.search(text))
     sig.test_pass_seen = bool(_RE_TEST_PASSED.search(text))
     sig.all_tests_passed = bool(_RE_ALL_PASSED.search(text))
@@ -111,7 +104,7 @@ def parse_observation(text: Optional[str]) -> ObservationSignals:
         sig.pass_count = int(m_pass.group(1))
         sig.test_pass_seen = True
 
-    # 编辑失败
+    # Public-release English note.
     sig.edit_failed = bool(_RE_EDIT_FAIL.search(text))
 
     return sig

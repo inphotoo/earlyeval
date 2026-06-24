@@ -1,75 +1,75 @@
 # Recent Model-Holdout Experiments Audit
 
-生成时间：2026-04-28
+description:2026-04-28
 
-本文档整理 `model_holdout_answer_calibrated_full` 最近一轮实验的核心流程、数据审计、主要结果和解释边界。
+description `model_holdout_answer_calibrated_full` description,description,description.
 
-综合新版报告见：
+description:
 
 ```text
 MODEL_HOLDOUT_ANSWER_FINAL_CONSOLIDATED_REPORT.md
 ```
 
-该报告把主实验、补充消融训练、gold answer TF-IDF、step-bucket AUC、calibrated/raw fine-grid 阈值调优都合并到一份文档里。
+description,description,gold answer TF-IDF,step-bucket AUC,calibrated/raw fine-grid description.
 
-## 1. 最重要结论
+## 1. description
 
-### 1.1 三个 heldout agent model 的轨迹没有进入训练或 valid
+### 1.1 description heldout agent model description valid
 
-严格结论：
+description:
 
-- 这三个 heldout 模型的轨迹行只在 test 中：
+- description heldout description test description:
   - `20251124_mini-v1.17.0_minimax-m2`
   - `20251201_mini-v1.17.1_deepseek-v3.2-reasoner`
   - `20251210_mini-v1.17.2_kimi-k2-thinking`
-- train 中 heldout model 行数：`0`
-- valid 中 heldout model 行数：`0`
-- test 中非 heldout model 行数：`0`
-- test 预测表里 `model_id` 输入统一是 `__MISSING__`，真实模型名只保存在 `orig_model_id` 里用于统计，不作为模型输入。
+- train description heldout model description:`0`
+- valid description heldout model description:`0`
+- test description heldout model description:`0`
+- test description `model_id` description `__MISSING__`,description `orig_model_id` description,description.
 
-所以，如果问题是：
+description,description:
 
-> 这三个模型自己的轨迹有没有被训练或 valid 用到？
+> description valid description?
 
-答案是：**没有。**
+description:**description.**
 
-### 1.2 但这不是 instance-holdout
+### 1.2 description instance-holdout
 
-也必须非常清楚：
+description:
 
-- 这是 **model-holdout**，不是 **instance-holdout**。
-- 同一道 SWE-bench 题目会通过其他 agent model 出现在 train/valid。
-- heldout test 是“新 agent model 跑已知题目池”，不是“完全新题目”。
+- description **model-holdout**,description **instance-holdout**.
+- description SWE-bench description agent model description train/valid.
+- heldout test description"description agent model description",description"description".
 
-这解释了为什么 I/J 在 step=0 就很强：模型能利用题目难度、官方答案结构、task prompt 等静态信号。
+description I/J description step=0 description:description,description,task prompt description.
 
-## 2. 数据审计结果
+## 2. description
 
-主运行目录：
+description:
 
 ```text
 runs/model_holdout_answer_calibrated_full
 ```
 
-### 2.1 prefix table 全量数据
+### 2.1 prefix table description
 
-读取：
+description:
 
 ```text
 runs/model_holdout_answer_calibrated_full/data/prefix_table_filtered.parquet
 ```
 
-审计结果：
+description:
 
-| 项目 | 数值 |
+| description | description |
 |---|---:|
-| 全部 prefix rows | `386380` |
-| 全部 trajectories | `9685` |
-| 全部 instances | `490` |
+| description prefix rows | `386380` |
+| description trajectories | `9685` |
+| description instances | `490` |
 | heldout prefix rows | `83169` |
 | heldout trajectories | `1458` |
 
-三个 heldout 模型在全表中的数量：
+description heldout description:
 
 | heldout model | rows | trajs | instances | prefix-row pos rate |
 |---|---:|---:|---:|---:|
@@ -77,35 +77,35 @@ runs/model_holdout_answer_calibrated_full/data/prefix_table_filtered.parquet
 | `20251201_mini-v1.17.1_deepseek-v3.2-reasoner` | `22740` | `482` | `482` | `0.5649` |
 | `20251210_mini-v1.17.2_kimi-k2-thinking` | `23491` | `488` | `488` | `0.5378` |
 
-### 2.2 split 后的 train/valid/test
+### 2.2 split description train/valid/test
 
-来自：
+description:
 
 ```text
 runs/model_holdout_answer_calibrated_full/reports/model_holdout_split_summary.csv
 runs/model_holdout_answer_calibrated_full/reports/task_answer_ablation_no_task_no_gold/split_reconstruction_summary.json
 ```
 
-| split | 是否 heldout model | rows | trajs | model 数 |
+| split | description heldout model | rows | trajs | model description |
 |---|---|---:|---:|---:|
-| train | 否 | `259854` | `6417` | `17` |
-| valid | 否 | `42419` | `1130` | `17` |
-| test | 是 | `83169` | `1458` | `3` |
+| train | description | `259854` | `6417` | `17` |
+| valid | description | `42419` | `1130` | `17` |
+| test | description | `83169` | `1458` | `3` |
 
-额外核验：
+description:
 
-| 检查项 | 结果 |
+| description | description |
 |---|---:|
-| train 中 heldout rows | `0` |
-| valid 中 heldout rows | `0` |
-| test 中 non-heldout rows | `0` |
-| `train_models ∩ holdout_models` | 空 |
-| `valid_models ∩ holdout_models` | 空 |
-| `test_models == holdout_models` | 是 |
+| train description heldout rows | `0` |
+| valid description heldout rows | `0` |
+| test description non-heldout rows | `0` |
+| `train_models ∩ holdout_models` | description |
+| `valid_models ∩ holdout_models` | description |
+| `test_models == holdout_models` | description |
 
-### 2.3 预测表检查
+### 2.3 description
 
-检查过以下预测表：
+description:
 
 ```text
 runs/model_holdout_answer_calibrated_full/reports/test_predictions_all_models.parquet
@@ -113,22 +113,22 @@ runs/model_holdout_answer_calibrated_full/reports/task_answer_ablation_posthoc/t
 runs/model_holdout_answer_calibrated_full/reports/task_answer_ablation_no_task_no_gold/test_predictions_task_answer_ablation.parquet
 ```
 
-共同结果：
+description:
 
-| 项目 | 结果 |
+| description | description |
 |---|---|
 | rows | `83169` |
 | trajectories | `1458` |
 | instances | `489` |
-| `split` | 只有 `test` |
-| `model_id` 输入 | 只有 `__MISSING__` |
-| `model_id_input_mode` | 只有 `test_missing` |
-| `orig_model_id` | 只有三个 heldout model |
+| `split` | description `test` |
+| `model_id` description | description `__MISSING__` |
+| `model_id_input_mode` | description `test_missing` |
+| `orig_model_id` | description heldout model |
 | non-heldout `orig_model_id` rows | `0` |
 
-## 3. 代码链路如何保证没有 heldout model 进入训练
+## 3. description heldout model description
 
-关键代码：
+description:
 
 ```text
 model_holdout_split.py
@@ -138,39 +138,39 @@ task_and_answer_ablation_posthoc.py
 feature_engineer.py
 ```
 
-### 3.1 split 逻辑
+### 3.1 split description
 
-`model_holdout_split.py` 中核心逻辑：
+`model_holdout_split.py` description:
 
 ```python
 trainval = work[~work["model_id"].isin(heldout)]
 test = work[work["model_id"].isin(heldout)]
 ```
 
-也就是说：
+description:
 
-- heldout 模型的轨迹直接进 test。
-- 非 heldout 模型再拆 train/valid。
-- 代码还检查 `train_models & test_models`，如果有重叠会报错。
+- heldout description test.
+- description heldout description train/valid.
+- description `train_models & test_models`,description.
 
-### 3.2 训练特征只在 train 上 fit
+### 3.2 description train description fit
 
-`run_all.py` 中：
+`run_all.py` description:
 
 ```python
 fe_with_model.fit(df_train)
 fe_no_model.fit(df_train)
 ```
 
-所以：
+description:
 
-- dense 编码器只从 train 学。
-- TF-IDF/SVD 也只从 train 文本 fit。
-- valid/test 只是 transform，不参与 fit。
+- dense description train description.
+- TF-IDF/SVD description train description fit.
+- valid/test description transform,description fit.
 
-### 3.3 valid/test 的模型身份被隐藏
+### 3.3 valid/test description
 
-`run_all.py` 和 posthoc 脚本都会做：
+`run_all.py` description posthoc description:
 
 ```python
 df_train["model_id_input_mode"] = "train_seen"
@@ -178,40 +178,40 @@ df_valid["model_id"] = "__MISSING__"
 df_test["model_id"] = "__MISSING__"
 ```
 
-含义：
+description:
 
-- train 可以看到训练模型身份。
-- valid/test 都看不到真实模型身份。
-- heldout test 的真实模型名只保留在 `orig_model_id`，用于后续分模型统计。
+- train description.
+- valid/test description.
+- heldout test description `orig_model_id`,description.
 
-### 3.4 校准和阈值选择没有用 heldout test label
+### 3.4 description heldout test label
 
-概率校准：
+description:
 
-- 使用 valid 上的 raw probability 和 label。
-- 方法是 validation-only sigmoid/Platt calibration。
+- description valid description raw probability description label.
+- description validation-only sigmoid/Platt calibration.
 
-不对称阈值选择：
+description:
 
-- 在 valid 上 sweep 阈值。
-- test 只是应用 valid 选出的阈值。
+- description valid description sweep description.
+- test description valid description.
 
-注意边界：
+description:
 
-- valid 没有 heldout model 轨迹。
-- 但 valid 的 SWE instances 会和 heldout test 题目池重叠，因为这是 model-holdout，不是 instance-holdout。
+- valid description heldout model description.
+- description valid description SWE instances description heldout test description,description model-holdout,description instance-holdout.
 
-## 4. 主实验结果
+## 4. description
 
-### 4.1 prefix-row 总体 AUC
+### 4.1 prefix-row description AUC
 
-来自：
+description:
 
 ```text
 runs/model_holdout_answer_calibrated_full/reports/evaluation_report.txt
 ```
 
-这里的 `N=83169`，表示按所有 prefix rows 计算。
+description `N=83169`,description prefix rows description.
 
 | Model | ROC-AUC | PR-AUC | Brier |
 |---|---:|---:|---:|
@@ -222,21 +222,21 @@ runs/model_holdout_answer_calibrated_full/reports/evaluation_report.txt
 | `D_Dense_Full_LR` | `0.7814` | `0.7927` | `0.2015` |
 | `G_TfIdf_Full_LR` | `0.7864` | `0.7918` | `0.1933` |
 
-解释：
+description:
 
-- LightGBM 在这个 setting 下明显强于 LR。
-- `I/J` 最稳，`K` 加了 full raw text 后反而变差，说明 raw text TF-IDF 不是稳定增益。
+- LightGBM description setting description LR.
+- `I/J` description,`K` description full raw text description,description raw text TF-IDF description.
 
 ### 4.2 final-step trajectory AUC
 
-来自：
+description:
 
 ```text
 runs/model_holdout_answer_calibrated_full/reports/task_answer_ablation_posthoc/summary.txt
 runs/model_holdout_answer_calibrated_full/reports/task_answer_ablation_no_task_no_gold/summary.txt
 ```
 
-这里按每条 trajectory 的最后一步计算，`rows=1458`。
+description trajectory description,`rows=1458`.
 
 | Model                                    | Acc@0.5 | ROC-AUC | PR-AUC | Brier |
 |---|---:|---:|---:|---:|
@@ -247,16 +247,16 @@ runs/model_holdout_answer_calibrated_full/reports/task_answer_ablation_no_task_n
 | `Abl_NoGoldAnswer_LightGBM`              | `0.7888` | `0.8271` | `0.8520` | `0.1771` |
 | `Abl_NoTaskSignal_NoGoldAnswer_LightGBM` | `0.7469` | `0.8054` | `0.8583` | `0.1778` |
 
-关键解释：
+description:
 
-- 去掉 task prompt TF-IDF 后，AUC 只从 `0.9000/0.9007` 降到约 `0.8946`。
-- 去掉全部 task signal 后，仍有 `0.8960`。
-- 去掉 gold answer 结构化特征后，明显降到 `0.8271`。
-- task + gold 都去掉后，仍有 `0.8054`，因为还保留了 prefix 过程文本和过程特征。
+- description task prompt TF-IDF description,AUC description `0.9000/0.9007` description `0.8946`.
+- description task signal description,description `0.8960`.
+- description gold answer description,description `0.8271`.
+- task + gold description,description `0.8054`,description prefix description.
 
-## 5. step-bucket AUC：为什么看起来“模型无关也很强”
+## 5. step-bucket AUC:description"description"
 
-来自：
+description:
 
 ```text
 runs/model_holdout_answer_calibrated_full/reports/task_answer_ablation_no_task_no_gold/step_bucket_auc_report.txt
@@ -264,7 +264,7 @@ runs/model_holdout_answer_calibrated_full/reports/task_answer_ablation_step_buck
 runs/model_holdout_answer_calibrated_full/reports/task_answer_ablation_step_buckets/step_bucket_metrics_all_task_answer_models.csv
 ```
 
-下面使用 calibrated probabilities。ROC-AUC 是排序指标，单调校准基本不改变排序。
+description calibrated probabilities.ROC-AUC description,description.
 
 | bucket | `J` | `I` | `NoTaskSignal` | `NoTaskPromptTfidf` | `NoGoldAnswer` | `NoTask+NoGold` |
 |---|---:|---:|---:|---:|---:|---:|
@@ -276,23 +276,23 @@ runs/model_holdout_answer_calibrated_full/reports/task_answer_ablation_step_buck
 | `25+`   | `0.8656` | `0.8693` | `0.8599` | `0.8593` | `0.8018` | `0.7841` |
 | `final` | `0.9007` | `0.9000` | `0.8960` | `0.8946` | `0.8271` | `0.8054` |
 
-解释：
+description:
 
-- `NoTask+NoGold` 在 `step=0` 完全没能力，AUC 是 `0.5000`。
-- 后面 AUC 上升，是因为 prefix 中逐渐出现 action、feedback、thought、报错、测试输出、文件名、API token 等过程信息。
-- `I/J` 在 `step=0` 就很高，是因为它们还保留 task prompt 和 gold answer 结构化特征，本质上已经能做“题目难度预测”。
-- `NoTaskSignal` 和 `NoTaskPromptTfidf` 仍然在 `step=0` 很高，说明单独去掉 task prompt 并不够；gold answer 结构化特征仍然可以强力判断题目难度。
-- `NoGoldAnswer` 在 `step=0` 仍有 `0.8267`，说明 task prompt / repo / difficulty-like static signal 也很强。
+- `NoTask+NoGold` description `step=0` description,AUC description `0.5000`.
+- description AUC description,description prefix description action,feedback,thought,description,description,description,API token description.
+- `I/J` description `step=0` description,description task prompt description gold answer description,description"description".
+- `NoTaskSignal` description `NoTaskPromptTfidf` description `step=0` description,description task prompt description;gold answer description.
+- `NoGoldAnswer` description `step=0` description `0.8267`,description task prompt / repo / difficulty-like static signal description.
 
-## 6. 同题其他模型成功率先验
+## 6. description
 
-为了判断高 AUC 是不是离谱，做了一个 sanity check：
+description AUC description,description sanity check:
 
-> 只用同一道 SWE instance 上其他非 heldout 模型的 resolved rate，去预测 heldout 三个模型最终是否成功。
+> description SWE instance description heldout description resolved rate,description heldout description.
 
-结果：
+description:
 
-| 指标 | 数值 |
+| description | description |
 |---|---:|
 | test trajectories | `1458` |
 | test instances | `489` |
@@ -300,28 +300,28 @@ runs/model_holdout_answer_calibrated_full/reports/task_answer_ablation_step_buck
 | prior ROC-AUC | `0.9071` |
 | prior PR-AUC | `0.9177` |
 
-解释：
+description:
 
-- 同一道题对不同模型的成功/失败高度相关。
-- 容易题大多数模型都容易过，难题大多数模型都容易挂。
-- 因此 I/J 的高 step=0 AUC 并不神秘：它们很大程度是在学习题目难度。
+- description/description.
+- description,description.
+- description I/J description step=0 AUC description:description.
 
-这也说明：
+description:
 
-- 当前实验能证明：**对已知题目池，新 agent model 没见过，也可以迁移预测。**
-- 当前实验不能证明：**对完全新 SWE instance 也同样强。**
+- description:**description,description agent model description,description.**
+- description:**description SWE instance description.**
 
-## 7. Gold raw-text TF-IDF 消融结论
+## 7. Gold raw-text TF-IDF description
 
-### 7.1 `gold_patch_tfidf` 维度变化
+### 7.1 `gold_patch_tfidf` description
 
-来自：
+description:
 
 ```text
 runs/model_holdout_answer_calibrated_full/reports/gold_text_tfidf_patch_dims/summary.txt
 ```
 
-final-step calibrated：
+final-step calibrated:
 
 | Model | Acc@0.5 | ROC-AUC | Brier |
 |---|---:|---:|---:|
@@ -330,20 +330,20 @@ final-step calibrated：
 | `GoldPatchTfidf_Dim16` | `0.8278` | `0.8994` | `0.1297` |
 | `GoldPatchTfidf_Dim32` | `0.8278` | `0.8994` | `0.1281` |
 
-结论：
+description:
 
-- patch raw text TF-IDF 没有带来稳定提升。
-- 维度从 8 到 32，AUC 基本不变，而且都略低于 `I`。
+- patch raw text TF-IDF description.
+- description 8 description 32,AUC description,description `I`.
 
-### 7.2 `gold_test_patch_tfidf` 和 `gold_fail_to_pass_tfidf`
+### 7.2 `gold_test_patch_tfidf` description `gold_fail_to_pass_tfidf`
 
-来自：
+description:
 
 ```text
 runs/model_holdout_answer_calibrated_full/reports/gold_text_tfidf_other_dim16/summary.txt
 ```
 
-final-step calibrated：
+final-step calibrated:
 
 | Model | Acc@0.5 | ROC-AUC | Brier |
 |---|---:|---:|---:|
@@ -351,19 +351,19 @@ final-step calibrated：
 | `GoldTestPatchTfidf_Dim16` | `0.8244` | `0.8996` | `0.1307` |
 | `GoldFailToPassTfidf_Dim16` | `0.8320` | `0.9008` | `0.1271` |
 
-结论：
+description:
 
-- `gold_fail_to_pass_tfidf` 有极小 final-step AUC 提升：`0.9000 -> 0.9008`。
-- 但 prefix-row AUC 反而低于 `I`：`0.8839 -> 0.8806`。
-- 所以 raw text TF-IDF 不是当前主要收益来源；结构化 gold answer 特征更关键。
+- `gold_fail_to_pass_tfidf` description final-step AUC description:`0.9000 -> 0.9008`.
+- description prefix-row AUC description `I`:`0.8839 -> 0.8806`.
+- description raw text TF-IDF description;description gold answer description.
 
-## 8. I/J 特征重要性解释
+## 8. I/J description
 
-对 LightGBM 的 gain 做粗分组：
+description LightGBM description gain description:
 
 ### 8.1 `I_LightGBM_Dense_AF`
 
-| 特征组 | gain 占比 |
+| description | gain description |
 |---|---:|
 | task prompt TF-IDF/SVD | `51.9%` |
 | gold structured answer | `30.5%` |
@@ -374,7 +374,7 @@ final-step calibrated：
 
 ### 8.2 `J_LightGBM_Dense_AF_Thought`
 
-| 特征组 | gain 占比 |
+| description | gain description |
 |---|---:|
 | task prompt TF-IDF/SVD | `48.0%` |
 | gold structured answer | `31.9%` |
@@ -384,15 +384,15 @@ final-step calibrated：
 | process dense | `2.9%` |
 | action TF-IDF/SVD | `2.5%` |
 
-解释：
+description:
 
-- I/J 不是主要靠后期轨迹，而是主要靠题目信息和答案结构。
-- `model_id one-hot` 在 train 中有重要性，但 test 的 `model_id` 是 `__MISSING__`，所以它不能解释 heldout 三个模型之间的真实身份差异。
-- 当前 setting 下，LightGBM 学到的是“题目/答案复杂度 -> 成功概率”的非线性映射。
+- I/J description,description.
+- `model_id one-hot` description train description,description test description `model_id` description `__MISSING__`,description heldout description.
+- description setting description,LightGBM description"description/description -> description"description.
 
-## 9. valid-only 阈值调优结果
+## 9. valid-only description
 
-详细整理文件：
+description:
 
 ```text
 runs/model_holdout_answer_calibrated_full/reports/threshold_tuning_summary/threshold_tuning_summary.md
@@ -403,44 +403,44 @@ runs/model_holdout_answer_calibrated_full/reports/threshold_tuning_summary/targe
 runs/model_holdout_answer_calibrated_full/reports/threshold_tuning_summary/target_precision_raw_grid001_compact.csv
 ```
 
-当前主口径已经统一为：
+description:
 
-1. **只在 valid 上选阈值**。
-2. 先要求 `abs(valid ΔRate)` 在容忍范围内，例如 `0.5pp / 1pp / 2pp`。
-3. 在满足 rate 约束的候选里，选择 **valid Save 最大**的阈值对。
-4. test 只用于把 valid 选出的阈值应用过去并报告实际结果；test 不参与选阈值。
+1. **description valid description**.
+2. description `abs(valid ΔRate)` description,description `0.5pp / 1pp / 2pp`.
+3. description rate description,description **valid Save description**description.
+4. test description valid description;test description.
 
-所以后面如果讨论“尽量不改变 rate，同时最大化 save”，主看：
+description"description rate,description save",description:
 
 ```text
 runs/model_holdout_answer_calibrated_full/reports/threshold_tuning_summary/rate_preserving_policy_summary.md
 runs/model_holdout_answer_calibrated_full/reports/threshold_tuning_summary/rate_preserving_policy_all_grids.csv
 ```
 
-`target_precision_*` 是另一条旁支：它回答“想要 success/failure 两端 precision 达到某个目标时会怎样”，不再作为主选择规则。
+`target_precision_*` description:description"description success/failure description precision description",description.
 
-### 9.1 跑过哪些阈值实验
+### 9.1 description
 
-| Run dir | 概率列 | 阈值网格 / 选取方式 | 作用 |
+| Run dir | description | description / description | description |
 |---|---|---|---|
-| `asymmetric_valid_threshold_tuning_fine` | calibrated `prob_cal__` | `ThrS=0.65..0.95` step `0.025`; `ThrF=0.05..0.45` step `0.025`; policies: `rate_1pp/rate_2pp/prec90` | 在 valid 上按策略选阈值，再应用到 test |
-| `asymmetric_valid_threshold_tuning_fine_calibrated_step001_rate` | calibrated `prob_cal__` | `ThrS=0.65..0.95` step `0.001`; `ThrF=0.05..0.45` step `0.001` | calibrated 概率的细网格全扫；主用于 rate-preserving policy |
-| `asymmetric_valid_threshold_tuning_fine_raw` | raw `prob__` | 同样 `0.025` 网格和 policies | raw 概率版 policy sweep |
-| `asymmetric_valid_threshold_tuning_fine_raw_step001` | raw `prob__` | `ThrS=0.65..0.95` step `0.001`; `ThrF=0.05..0.45` step `0.001` | 更密的 raw 网格全扫，共 `724206` 条 valid/test sweep rows |
-| `two_end_precision_targets_fine` | calibrated `prob_cal__` | target precision = `0.75/0.80/0.85/0.90`，粗网格 `0.025` | valid 上要求成功端/失败端 precision 都达到 target，然后选省步最多的阈值对 |
-| `two_end_precision_targets_fine_raw_step001` | raw `prob__` | target precision = `0.75/0.80/0.85/0.90`，细网格 `0.001` | 更密 raw 网格下的 target-precision 结果 |
+| `asymmetric_valid_threshold_tuning_fine` | calibrated `prob_cal__` | `ThrS=0.65..0.95` step `0.025`; `ThrF=0.05..0.45` step `0.025`; policies: `rate_1pp/rate_2pp/prec90` | description valid description,description test |
+| `asymmetric_valid_threshold_tuning_fine_calibrated_step001_rate` | calibrated `prob_cal__` | `ThrS=0.65..0.95` step `0.001`; `ThrF=0.05..0.45` step `0.001` | calibrated description;description rate-preserving policy |
+| `asymmetric_valid_threshold_tuning_fine_raw` | raw `prob__` | description `0.025` description policies | raw description policy sweep |
+| `asymmetric_valid_threshold_tuning_fine_raw_step001` | raw `prob__` | `ThrS=0.65..0.95` step `0.001`; `ThrF=0.05..0.45` step `0.001` | description raw description,description `724206` description valid/test sweep rows |
+| `two_end_precision_targets_fine` | calibrated `prob_cal__` | target precision = `0.75/0.80/0.85/0.90`,description `0.025` | valid description/description precision description target,description |
+| `two_end_precision_targets_fine_raw_step001` | raw `prob__` | target precision = `0.75/0.80/0.85/0.90`,description `0.001` | description raw description target-precision description |
 
-说明：
+description:
 
-- `ThrS` 是 success threshold：`p >= ThrS` 提前判 success。
-- `ThrF` 是 failure threshold：`p <= ThrF` 提前判 failure。
-- `target_precision=0.90` 不是“overall Acc 必须 90%”，而是 valid 上 **success 端 precision 和 failure 端 precision 都要 >= 90%**。
-- `Test Acc / Test PrecS / Test PrecF` 才是 heldout test 上实际表现。
-- 如果觉得 `0.025` 网格“不够全”，确实如此；现在 raw 和 calibrated 概率版都已经有 `0.001` 细网格。
+- `ThrS` description success threshold:`p >= ThrS` description success.
+- `ThrF` description failure threshold:`p <= ThrF` description failure.
+- `target_precision=0.90` description"overall Acc description 90%",description valid description **success description precision description failure description precision description >= 90%**.
+- `Test Acc / Test PrecS / Test PrecF` description heldout test description.
+- description `0.025` description"description",description;description raw description calibrated description `0.001` description.
 
-### 9.2 主结果：calibrated grid 0.001，rate-preserving `rate_1pp`
+### 9.2 description:calibrated grid 0.001,rate-preserving `rate_1pp`
 
-选取规则：valid 上 `abs(ΔRate) <= 1pp`，然后最大化 valid Save。下面的 test 列是应用 valid 选出阈值后的 heldout-test 实际结果。
+description:valid description `abs(ΔRate) <= 1pp`,description valid Save.description test description valid description heldout-test description.
 
 | Model | ThrS | ThrF | Valid ΔRate | Valid Save | Valid Acc | Test ΔRate | Test Save | Test Acc | Test PrecS | Test PrecF | FP | FN | N |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -451,13 +451,13 @@ runs/model_holdout_answer_calibrated_full/reports/threshold_tuning_summary/rate_
 | `G` | `0.728` | `0.450` | `+0.7%` | `69.7%` | `65.6%` | `-2.9%` | `77.3%` | `74.3%` | `81.2%` | `64.4%` | `137` | `179` | `1231` |
 | `D` | `0.802` | `0.450` | `+1.0%` | `75.0%` | `75.2%` | `-8.2%` | `79.4%` | `73.6%` | `83.2%` | `63.9%` | `107` | `226` | `1262` |
 
-直观结论：
+description:
 
-- `H/K` 是 rate-preserving 下最稳的两个：test ΔRate 约 `-0.8% / -0.1%`，同时还能省 `76.7% / 60.8%`。
-- `I/J` 在 valid 上 rate 很贴近，但 test 上会偏保守，ΔRate 约 `-5.8% / -5.4%`；它们省步高，但会多判一些真实成功为 failure。
-- `D/G` 仍然不适合作为主早停策略：虽然 save 很高，但 test rate 下滑明显，尤其 `D`。
+- `H/K` description rate-preserving description:test ΔRate description `-0.8% / -0.1%`,description `76.7% / 60.8%`.
+- `I/J` description valid description rate description,description test description,ΔRate description `-5.8% / -5.4%`;description,description failure.
+- `D/G` description:description save description,description test rate description,description `D`.
 
-### 9.3 对照：raw grid 0.001，rate-preserving `rate_1pp`
+### 9.3 description:raw grid 0.001,rate-preserving `rate_1pp`
 
 | Model | ThrS | ThrF | Valid ΔRate | Valid Save | Valid Acc | Test ΔRate | Test Save | Test Acc | Test PrecS | Test PrecF | FP | FN | N |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -468,9 +468,9 @@ runs/model_holdout_answer_calibrated_full/reports/threshold_tuning_summary/rate_
 | `G` | `0.650` | `0.411` | `-1.0%` | `75.4%` | `64.6%` | `-3.8%` | `81.7%` | `73.5%` | `80.6%` | `64.1%` | `143` | `199` | `1292` |
 | `D` | `0.661` | `0.450` | `+1.0%` | `91.0%` | `71.5%` | `-4.9%` | `93.8%` | `72.2%` | `79.7%` | `62.5%` | `163` | `235` | `1431` |
 
-### 9.4 旧对照：calibrated grid 0.025
+### 9.4 description:calibrated grid 0.025
 
-来自：
+description:
 
 ```text
 runs/model_holdout_answer_calibrated_full/reports/asymmetric_valid_threshold_tuning_fine/report.txt
@@ -487,11 +487,11 @@ runs/model_holdout_answer_calibrated_full/reports/asymmetric_valid_threshold_tun
 | `K` | `prec90` | `0.775` | `0.050` | `NA` | `NA` | `NA` | `94.3%` | `94.3%` | `NA` | `+0.1%` | `2.4%` | `2` | `0` | `35` |
 | `K` | `rate_1pp` | `0.750` | `0.250` | `80.9%` | `84.0%` | `74.3%` | `91.9%` | `92.0%` | `91.7%` | `+0.5%` | `43.1%` | `31` | `23` | `665` |
 
-这里 `rate_1pp/rate_2pp` 是“尽量不改变 valid rate，同时最大化 save”，不是精度目标；因此 test 上可能很省步，但 precision/Acc 不一定达到某个目标。
+description `rate_1pp/rate_2pp` description"description valid rate,description save",description;description test description,description precision/Acc description.
 
-### 9.5 旁支：Target precision，calibrated grid 0.025
+### 9.5 description:Target precision,calibrated grid 0.025
 
-选取规则：valid 上同时满足 `Prec(S) >= target` 和 `Prec(F) >= target`，满足后选择加权节省最多的阈值对。
+description:valid description `Prec(S) >= target` description `Prec(F) >= target`,description.
 
 | Model | Target | ThrS | ThrF | Valid Acc | Valid PrecS | Valid PrecF | Test Acc | Test PrecS | Test PrecF | Test ΔRate | Test Save | FP | FN | N |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -512,11 +512,11 @@ runs/model_holdout_answer_calibrated_full/reports/asymmetric_valid_threshold_tun
 | `K` | `0.85` | no valid pair | no valid pair | - | - | - | - | - | - | - | - | - | - | - |
 | `K` | `0.90` | no valid pair | no valid pair | - | - | - | - | - | - | - | - | - | - | - |
 
-完整 D/G/I/J/H/K 全表见 `threshold_tuning_summary.md`。
+description D/G/I/J/H/K description `threshold_tuning_summary.md`.
 
-### 9.6 旁支：更细 raw grid 0.001 的 target-precision 意义
+### 9.6 description:description raw grid 0.001 description target-precision description
 
-`two_end_precision_targets_fine_raw_step001` 是更细的 raw 概率网格。它能找到更细的阈值，例如：
+`two_end_precision_targets_fine_raw_step001` description raw description.description,description:
 
 | Model | Target | ThrS | ThrF | Test Acc | Test PrecS | Test PrecF | Test ΔRate | Test Save | FP | FN | N |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -525,34 +525,34 @@ runs/model_holdout_answer_calibrated_full/reports/asymmetric_valid_threshold_tun
 | `H` | `0.90` | `0.938` | `0.191` | `92.9%` | `94.8%` | `91.4%` | `-1.0%` | `39.2%` | `14` | `29` | `607` |
 | `K` | `0.85` | `0.756` | `0.356` | `92.7%` | `92.0%` | `93.9%` | `+1.1%` | `36.0%` | `29` | `13` | `574` |
 
-所以“阈值不全”的判断是对的：
+description"description"description:
 
-- calibrated 版目前主要是 `0.025` 网格；
-- raw 版已经有 `0.001` 细网格；
-- 如果要最完整、公平比较，下一步可以再跑一个 calibrated `0.001` target-precision 版本。
+- calibrated description `0.025` description;
+- raw description `0.001` description;
+- description,description,description calibrated `0.001` target-precision description.
 
-## 10. 当前最准确的表述
+## 10. description
 
-推荐表述：
+description:
 
-> 在 model-holdout setting 下，三个 heldout agent model 的轨迹没有进入 train/valid；模型在测试时也看不到真实 heldout model_id。结果说明 LightGBM 可以利用已知题目池上的 task/answer 结构化信号和 prefix 过程信号，迁移预测未见过的 agent model 表现。
+> description model-holdout setting description,description heldout agent model description train/valid;description heldout model_id.description LightGBM description task/answer description prefix description,description agent model description.
 
-不要过度表述为：
+description:
 
-> 模型已经证明可以泛化到完全新题目。
+> description.
 
-因为：
+description:
 
-- 当前不是 instance-holdout。
-- 同题其他模型成功率先验本身 AUC 已达 `0.9071`。
-- I/J 的 step=0 AUC 已接近 final AUC，说明题目难度信号非常强。
+- description instance-holdout.
+- description AUC description `0.9071`.
+- I/J description step=0 AUC description final AUC,description.
 
-## 11. 后续如果要进一步验证
+## 11. description
 
-建议按优先级：
+description:
 
-1. 做严格 `instance-holdout + model-holdout`：heldout 模型和 heldout instances 都不出现在 train/valid。
-2. 做 `NoTaskSignal + NoGoldAnswer + 脱敏 prefix token`：去掉文件名、测试名、repo 名、API 名等题目指纹。
-3. 做只用静态题目信号的 baseline：例如 `gold_patch_chars + difficulty + repo + task_prompt_svd`，明确上限。
-4. 做只用过程信号的 baseline：确认“轨迹进展”本身能贡献多少。
-5. 阈值策略继续用 valid-only，但报告时明确 valid/test 共享题目池这一点。
+1. description `instance-holdout + model-holdout`:heldout description heldout instances description train/valid.
+2. description `NoTaskSignal + NoGoldAnswer + description prefix token`:description,description,repo description,API description.
+3. description baseline:description `gold_patch_chars + difficulty + repo + task_prompt_svd`,description.
+4. description baseline:description"description"description.
+5. description valid-only,description valid/test description.

@@ -594,12 +594,32 @@ def _configure_tokenizer_cache(cache_root: Path | None) -> None:
 
 def _tokenizer_spec_for_model(model_id: str) -> TokenizerSpec:
     lower = str(model_id).lower()
-    if "gpt-5" in lower or "openai" in lower:
+    if "gpt-oss-20b" in lower:
+        return TokenizerSpec(
+            family="openai_gpt_oss",
+            backend="hf",
+            name="openai/gpt-oss-20b",
+            note="OpenAI GPT-OSS 20B tokenizer.",
+        )
+    if "gpt-oss" in lower:
+        return TokenizerSpec(
+            family="openai_gpt_oss",
+            backend="hf",
+            name="openai/gpt-oss-120b",
+            note="OpenAI GPT-OSS tokenizer; reused for GPT-OSS-family trajectories.",
+        )
+    if (
+        "gpt-5" in lower
+        or "openai" in lower
+        or lower in {"o3", "o4-mini"}
+        or lower.startswith("o3")
+        or lower.startswith("o4")
+    ):
         return TokenizerSpec(
             family="openai_gpt",
             backend="tiktoken",
             name="o200k_base",
-            note="OpenAI GPT-family proxy tokenizer; exact GPT-5 tokenizer is not exposed in these artifacts.",
+            note="OpenAI GPT/O-series proxy tokenizer; exact GPT-5/O-series tokenizer is not exposed in these artifacts.",
         )
     if "sonnet" in lower or "claude" in lower:
         return TokenizerSpec(
@@ -615,19 +635,40 @@ def _tokenizer_spec_for_model(model_id: str) -> TokenizerSpec:
             name="mlx-community/gemma-3-270m-it-4bit",
             note="Gemma-3 tokenizer proxy for Gemini; Gemini's official tokenizer is not locally available.",
         )
+    if "qwen" in lower:
+        return TokenizerSpec(
+            family="qwen3_coder",
+            backend="hf",
+            name="Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8",
+            note="Qwen3 Coder tokenizer for Qwen Coder trajectories.",
+        )
+    if "grok" in lower or "@xai" in lower:
+        return TokenizerSpec(
+            family="grok_proxy",
+            backend="hf",
+            name="alvarobartt/grok-2-tokenizer",
+            note="Public Grok-2 tokenizer proxy; no official local Grok-4/Grok-code-fast tokenizer is available in these artifacts.",
+        )
     if "glm" in lower:
+        if "glm-5" in lower:
+            return TokenizerSpec(
+                family="glm",
+                backend="hf",
+                name="zai-org/GLM-4.6",
+                note="GLM-4.6 tokenizer proxy for GLM-5 because the GLM-5 tokenizer class is not loadable in the current environment.",
+            )
         return TokenizerSpec(
             family="glm",
             backend="hf",
-            name="zai-org/GLM-4.5",
-            note="Closest public GLM-family tokenizer for GLM 4.5/4.6 trajectories.",
+            name="zai-org/GLM-4.6",
+            note="Public GLM-family tokenizer for GLM 4.5/4.6 trajectories.",
         )
     if "devstral" in lower:
         return TokenizerSpec(
             family="devstral",
             backend="hf",
-            name="mistralai/Devstral-Small-2507",
-            note="Official Devstral Small tokenizer; reused for the non-small Devstral label when no closer tokenizer is present.",
+            name="mistralai/Mistral-Small-3.1-24B-Instruct-2503",
+            note="Mistral Small 3.1 tokenizer proxy for Devstral because the Devstral tokenizer is not loadable with this Transformers version.",
         )
     if "deepseek" in lower:
         return TokenizerSpec(
@@ -637,6 +678,14 @@ def _tokenizer_spec_for_model(model_id: str) -> TokenizerSpec:
             note="DeepSeek V3.2 tokenizer for DeepSeek reasoner trajectories.",
         )
     if "kimi" in lower:
+        if "instruct-0905" in lower or "kimi-k2-0905" in lower:
+            return TokenizerSpec(
+                family="kimi",
+                backend="hf",
+                name="moonshotai/Kimi-K2-Instruct-0905",
+                note="Kimi K2 Instruct tokenizer with trust_remote_code.",
+                trust_remote_code=True,
+            )
         return TokenizerSpec(
             family="kimi",
             backend="hf",
@@ -645,6 +694,13 @@ def _tokenizer_spec_for_model(model_id: str) -> TokenizerSpec:
             trust_remote_code=True,
         )
     if "minimax" in lower:
+        if "m2.5" in lower:
+            return TokenizerSpec(
+                family="minimax",
+                backend="hf",
+                name="MiniMaxAI/MiniMax-M2.5",
+                note="MiniMax M2.5 tokenizer.",
+            )
         return TokenizerSpec(
             family="minimax",
             backend="hf",

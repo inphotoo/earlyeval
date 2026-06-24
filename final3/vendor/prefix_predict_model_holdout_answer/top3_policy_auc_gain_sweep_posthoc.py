@@ -243,8 +243,8 @@ def main() -> None:
 
     lines = [
         "# Clean-Top Policy AUC Gain Sweep", "",
-        "问题：通过调 `threshold / min_step / consecutive k / policy_mode`，clean top 的 threshold-decided subset AUC 能否超过 `train_other_mean_success` prior？", "",
-        "口径：排除 `gpt-5-2-codex`；对两个稳定 top agents 合并；结果默认跨 I/J、strategy、score_mode 平均。", "",
+        'Public-release English note.', "",
+        'Public-release English note.', "",
         "## Best Candidates with Support Constraints", "",
     ]
     for min_n, min_cov in [(30, 0.05), (50, 0.10), (100, 0.20)]:

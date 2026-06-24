@@ -18,24 +18,13 @@ from final3.reports.paper_tables import refresh_paper_tables
 
 
 def _print_result(payload) -> None:
-    """统一打印 CLI 结果。
-
-    所有子命令都返回可 JSON 序列化的 dict/list，而不是在业务函数内部
-    随意 print。这样后续如果要做 shell pipeline 或日志收集，输出形状是
-    可预测的。
-    """
+    """Print command results as stable JSON for scripts and logs."""
 
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """构建 final3 的顶层命令行解析器。
-
-    这里集中定义所有公开入口，避免各模块自己暴露零散脚本。默认原则：
-    - smoke/main 是轻量路径。
-    - heavy 训练必须显式 `--execute`。
-    - report 默认 dry-run。
-    """
+    """Build the top-level final3 command-line parser."""
 
     parser = argparse.ArgumentParser(
         prog="python -m final3.cli",
@@ -141,11 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _dispatch(args: argparse.Namespace) -> int:
-    """根据 argparse 结果分发到具体业务函数。
-
-    业务函数本身不关心 CLI 参数对象，只接收普通 Python 参数。这让后续
-    单元测试可以直接调用业务函数，不必模拟命令行。
-    """
+    """Dispatch parsed CLI arguments to the corresponding implementation."""
 
     if args.command == "pipeline" and args.pipeline_name == "current-safe-stop":
         _print_result(
@@ -234,11 +219,7 @@ def _dispatch(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI 主入口。
-
-    捕获常见用户错误并转成一行 `error:`，避免把预期错误显示成 Python
-    traceback。真正的未知 bug 仍会冒泡，方便开发阶段定位。
-    """
+    """Run the final3 CLI and convert expected user errors to one-line messages."""
 
     parser = build_parser()
     args = parser.parse_args(argv)

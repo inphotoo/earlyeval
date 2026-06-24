@@ -239,8 +239,8 @@ def main() -> None:
 
     lines = [
         "# Threshold-Decided AUC Gain Report", "",
-        "口径：对每个双端阈值 `p>=thr / p<=1-thr`，固定 `min_step=10,k=2`，只在实际触发 early-stop 的 trajectory 上计算 AUC。", "",
-        "注意：这是 selected/decided subset AUC，不等同于全量 trajectory fixed-step AUC；高阈值会选择更容易/更高置信的样本，因此需要同时看 coverage。", "",
+        'Public-release English note.', "",
+        'Public-release English note.', "",
     ]
     for subset_name in ["all", "ambiguous_prior_0.3_0.7", "strict_ambiguous_prior_0.4_0.6"]:
         sub = compact[compact["subset"].eq(subset_name)].copy()
@@ -269,10 +269,10 @@ def main() -> None:
 
     lines += [
         "## Files", "",
-        "- `threshold_decided_auc_gain_by_run.csv`：逐 split / variant / strategy / score / threshold 明细。",
-        "- `threshold_decided_auc_gain_summary.csv`：按 strategy/score 汇总。",
-        "- `threshold_decided_auc_gain_compact.csv`：跨 strategy/score 平均后的核心表。",
-        "- `threshold_decisions_with_prior_scores.csv`：每条 trajectory 的 threshold decision 与 prior 分数。",
+        'Public-release English note.',
+        'Public-release English note.',
+        'Public-release English note.',
+        'Public-release English note.',
     ]
     (output_dir / "threshold_decided_auc_gain_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(output_dir / "threshold_decided_auc_gain_report.md")
