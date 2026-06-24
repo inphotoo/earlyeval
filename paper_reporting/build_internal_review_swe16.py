@@ -608,19 +608,6 @@ def _tokenizer_spec_for_model(model_id: str) -> TokenizerSpec:
             name="openai/gpt-oss-120b",
             note="OpenAI GPT-OSS tokenizer; reused for GPT-OSS-family trajectories.",
         )
-    if (
-        "gpt-5" in lower
-        or "openai" in lower
-        or lower in {"o3", "o4-mini"}
-        or lower.startswith("o3")
-        or lower.startswith("o4")
-    ):
-        return TokenizerSpec(
-            family="openai_gpt",
-            backend="tiktoken",
-            name="o200k_base",
-            note="OpenAI GPT/O-series proxy tokenizer; exact GPT-5/O-series tokenizer is not exposed in these artifacts.",
-        )
     if "sonnet" in lower or "claude" in lower:
         return TokenizerSpec(
             family="claude",
@@ -706,6 +693,19 @@ def _tokenizer_spec_for_model(model_id: str) -> TokenizerSpec:
             backend="hf",
             name="MiniMaxAI/MiniMax-M2",
             note="MiniMax M2 tokenizer.",
+        )
+    if (
+        "gpt-5" in lower
+        or "openai" in lower
+        or lower in {"o3", "o4-mini"}
+        or lower.startswith("o3")
+        or lower.startswith("o4")
+    ):
+        return TokenizerSpec(
+            family="openai_gpt",
+            backend="tiktoken",
+            name="o200k_base",
+            note="OpenAI GPT/O-series proxy tokenizer; exact GPT-5/O-series tokenizer is not exposed in these artifacts.",
         )
     raise ValueError(f"No tokenizer mapping configured for model_id={model_id!r}")
 

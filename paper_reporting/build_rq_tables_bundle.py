@@ -560,7 +560,7 @@ def _source_token_cache_meta(prefix_table: Path, traj_ids: set[str]) -> dict[str
         "\n".join(sorted(str(x) for x in traj_ids)).encode("utf-8")
     ).hexdigest()
     return {
-        "cache_version": 2,
+        "cache_version": 3,
         "token_method": TOKEN_METHOD,
         "prefix_table": str(resolved),
         "prefix_table_size": int(stat.st_size),
