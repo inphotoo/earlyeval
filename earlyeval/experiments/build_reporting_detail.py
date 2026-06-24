@@ -472,12 +472,12 @@ def _lr_tfidf_artifacts() -> dict[str, Any]:
     frontier_valid = pd.concat(frontier_valid_rows, ignore_index=True)
     frontier_test = pd.concat(frontier_test_rows, ignore_index=True)
     frontier_agg = _aggregate_rows(frontier_test, ["predictor", "target_valid_decision_accuracy", "target_valid_decision_accuracy_pct"])
-    _write_csv(selected_agg, "lr_tfidf_selected_full16_aggregate.csv")
+    _write_csv(selected_agg, "lr_tfidf_selected_sweverify_aggregate.csv")
     _write_csv(selected_per_model, "lr_tfidf_selected_per_model.csv")
     _write_csv(frontier_valid, "lr_tfidf_valid_accuracy_selected_policies.csv")
     _write_csv(frontier_test, "lr_tfidf_valid_accuracy_per_fold_test_metrics.csv")
     _write_csv(frontier_agg, "lr_tfidf_valid_accuracy_frontier.csv")
-    _plot_selected_bars(selected_agg, "predictor", "LR / TF-IDF Selected Full16 Aggregates", "lr_tfidf_selected_full16_aggregate.png")
+    _plot_selected_bars(selected_agg, "predictor", "LR / TF-IDF Selected SWEVerify Aggregates", "lr_tfidf_selected_sweverify_aggregate.png")
     _plot_frontier(frontier_agg, "predictor", "LR / TF-IDF Valid-Accuracy Frontiers", "lr_tfidf_valid_accuracy_frontier.png")
     return {"selected_rows": int(len(selected)), "frontier_rows": int(len(frontier_agg))}
 
@@ -488,7 +488,7 @@ def _sweverify_split_rows_from_main_folds() -> pd.DataFrame:
     The standalone ``earlyeval_all_dataset_split_check`` artifact uses a uniform
     instance-disjoint geometry over the full (pre-exclusion) model pool, which no
     longer matches the paper's main run. The main run uses the leave-one-test-
-    model shadow-validation split over the 16 retained agents, where train and
+    model shadow-validation split over the retained SWE-bench Verified agents, where train and
     validation deliberately share instances but never a ``(instance, model)``
     pair or trajectory. We read each fold's ``split_metadata.json`` so the split
     audit reflects the geometry the paper actually reports.
@@ -601,7 +601,7 @@ def _markdown_table(frame: pd.DataFrame, columns: list[str], max_rows: int | Non
 def _write_readme() -> None:
     main = pd.read_csv(OUT / "main_sweverify_valid_accuracy_frontier.csv")
     robustness = pd.read_csv(OUT / "robustness_selected_test_metrics.csv")
-    lr = pd.read_csv(OUT / "lr_tfidf_selected_full16_aggregate.csv")
+    lr = pd.read_csv(OUT / "lr_tfidf_selected_sweverify_aggregate.csv")
     split_counts = pd.read_csv(OUT / "split_check_counts.csv")
     prefix = pd.read_csv(OUT / "prefix_audit_summary.csv")
     lines = [
@@ -676,7 +676,7 @@ def _write_readme() -> None:
     lines.extend(
         [
             "",
-            "Plots: `lr_tfidf_selected_full16_aggregate.png`, `lr_tfidf_valid_accuracy_frontier.png`.",
+            "Plots: `lr_tfidf_selected_sweverify_aggregate.png`, `lr_tfidf_valid_accuracy_frontier.png`.",
             "",
             "## Split / Prefix Audit",
             "",

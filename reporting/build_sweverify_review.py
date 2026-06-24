@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build internal review tables for the 16-fold SWEVerify LightGBM run.
+"""Build internal review tables for the SWE-bench Verified paper split LightGBM run.
 
 This is a post-hoc reporter only.  It does not train models or mutate any of
 the existing fold outputs.
@@ -189,8 +189,9 @@ def _load_selected(run_dir: Path) -> pd.DataFrame:
     if not mismatched.empty:
         bad = ", ".join(mismatched["fold_id"].astype(str).head(5))
         raise ValueError(f"selected adjusted_resolved mismatch in folds: {bad}")
-    if len(selected) != 16:
-        raise ValueError(f"expected 16 selected SWE folds, found {len(selected)}")
+    expected_folds = 16
+    if len(selected) != expected_folds:
+        raise ValueError(f"expected paper selected SWE folds, found {len(selected)}")
     return selected
 
 
@@ -2098,7 +2099,7 @@ def write_examples_md(examples: pd.DataFrame, path: Path) -> None:
     lines = [
         "# Successful Early-Stop Examples",
         "",
-        "These are true-positive success stops from the selected 16-fold SWE strategy.",
+        "These are true-positive success stops from the selected SWE-bench Verified strategy.",
         "Text snippets are approximate pointers into the raw trajectory JSON.",
         "",
     ]
@@ -2144,9 +2145,9 @@ def write_readme(
     moved = moved.sort_values("rank_change_positive_is_up", ascending=False)
     tok = selected_token_summary.iloc[0]
     lines = [
-        "# SWE16 Internal Review",
+        "# SWEVerify Review",
         "",
-        "Post-hoc report for the main SWEVerify 16-fold LightGBM strategy.",
+        "Post-hoc report for the main SWE-bench Verified paper split LightGBM strategy.",
         "No folds were retrained or rerun.",
         "",
         "## Metric Definitions",
@@ -2274,7 +2275,7 @@ def main() -> None:
     args = parser.parse_args()
 
     run_dir = args.run_dir
-    out_dir = args.output_dir or (run_dir / "internal_review_swe16")
+    out_dir = args.output_dir or (run_dir / "sweverify_review")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     selected = _load_selected(run_dir)

@@ -101,7 +101,7 @@ def _aggregate_step_summary(selected: pd.DataFrame) -> pd.DataFrame:
 
 
 def _token_proxy(run_dir: Path, args: argparse.Namespace) -> tuple[pd.DataFrame, pd.DataFrame]:
-    token_dir = run_dir / "internal_review_swe16"
+    token_dir = run_dir / "sweverify_review"
     summary_path = token_dir / "selected_strategy_token_summary.csv"
     decisions_path = token_dir / "selected_strategy_decisions_with_tokens.csv"
     if not summary_path.exists():
@@ -128,7 +128,7 @@ def _token_proxy(run_dir: Path, args: argparse.Namespace) -> tuple[pd.DataFrame,
             "policy_tokens": summary.get("policy_transcript_tokens_spent_est"),
             "saved_tokens": summary.get("transcript_tokens_saved_est"),
             "save_pct": summary.get("transcript_token_save_pct_est"),
-            "note": "Proxy only: post-hoc local tokenizer counts from internal_review_swe16/tokenizer_manifest.csv, not audited API usage.",
+            "note": "Proxy only: post-hoc local tokenizer counts from sweverify_review/tokenizer_manifest.csv, not audited API usage.",
         },
         {
             "metric": "estimated_context_call_tokens",

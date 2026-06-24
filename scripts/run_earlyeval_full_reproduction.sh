@@ -12,12 +12,12 @@ set -euo pipefail
 #
 # Optional switches:
 #   BUILD_SWE_SHARED=1       build SWE prefix/FeatureEngineer artifacts first
-#   RUN_MAIN=1               run SWE full-16 LightGBM folds
+#   RUN_MAIN=1               run SWE-bench Verified LightGBM folds
 #   RUN_ROBUSTNESS=1         run TerminalBench/Toolathlon leave-one-agent folds
-#   RUN_ABLATIONS=1          run SWE full-16 ablations
+#   RUN_ABLATIONS=1          run SWE-bench Verified ablations
 #   RUN_LR_TFIDF=1           run LR/TF-IDF model comparison
-#   RUN_MLP=1                run MLP full-16 comparison
-#   RUN_BERT=1               run BERT/CodeBERT full-16 comparison
+#   RUN_MLP=1                run MLP SWE-bench Verified paper split comparison
+#   RUN_BERT=1               run BERT/CodeBERT SWE-bench Verified paper split comparison
 #   RUN_LLM_LOGIT=1          run local LLM-logit comparison
 #   BUILD_TABLES=1           rebuild RQ table outputs from completed artifacts
 #
@@ -41,7 +41,7 @@ if [[ "${BUILD_SWE_SHARED:-0}" == "1" ]]; then
 fi
 
 if [[ "${RUN_MAIN:-0}" == "1" ]]; then
-  echo "[repro] === 2. SWE full-16 main LightGBM ==="
+  echo "[repro] === 2. SWE-bench Verified main LightGBM ==="
   bash scripts/run_earlyeval_03_main_lightgbm_execute.sh
   bash scripts/run_earlyeval_04_summarize_lightgbm_current.sh
   bash scripts/run_earlyeval_05_lightgbm_policy_sweep_valid_acc.sh
@@ -57,19 +57,19 @@ if [[ "${RUN_ROBUSTNESS:-0}" == "1" ]]; then
 fi
 
 if [[ "${RUN_ABLATIONS:-0}" == "1" ]]; then
-  echo "[repro] === 4. SWE full-16 ablations ==="
-  RUN_SUBDIR=sweverify_ablation_feature_groups_full16 \
+  echo "[repro] === 4. SWE-bench Verified ablations ==="
+  RUN_SUBDIR=sweverify_ablation_feature_groups \
   PROFILES=feature_groups \
-  TEST_MODELS="$(bash -lc 'source scripts/_earlyeval_full16_models.sh; earlyeval_full16_models_string')" \
+  TEST_MODELS="$(bash -lc 'source scripts/_earlyeval_sweverify_holdout_models.sh; earlyeval_sweverify_holdout_models_string')" \
   bash scripts/run_earlyeval_08_ablation_execute.sh
 
-  RUN_SUBDIR=sweverify_ablation_feature_groups_full16 \
+  RUN_SUBDIR=sweverify_ablation_feature_groups \
   PROFILES=component_with_model_id \
-  TEST_MODELS="$(bash -lc 'source scripts/_earlyeval_full16_models.sh; earlyeval_full16_models_string')" \
+  TEST_MODELS="$(bash -lc 'source scripts/_earlyeval_sweverify_holdout_models.sh; earlyeval_sweverify_holdout_models_string')" \
   bash scripts/run_earlyeval_08_ablation_execute.sh
 
-  bash scripts/run_earlyeval_08_ablation_default_reg_full16.sh
-  bash scripts/run_earlyeval_08_ablation_fine_grained_full16.sh
+  bash scripts/run_earlyeval_08_ablation_default_reg_sweverify.sh
+  bash scripts/run_earlyeval_08_ablation_fine_grained_sweverify.sh
 fi
 
 if [[ "${RUN_LR_TFIDF:-0}" == "1" ]]; then
@@ -79,24 +79,24 @@ fi
 
 if [[ "${RUN_MLP:-0}" == "1" ]]; then
   echo "[repro] === 5b. MLP architecture comparison ==="
-  bash scripts/run_earlyeval_09_direct_mlp_full16.sh
+  bash scripts/run_earlyeval_09_direct_mlp_sweverify.sh
 fi
 
 if [[ "${RUN_BERT:-0}" == "1" ]]; then
   echo "[repro] === 5c. BERT/CodeBERT architecture comparison ==="
-  bash scripts/run_earlyeval_09_bert_finetune_full16.sh
+  bash scripts/run_earlyeval_09_bert_finetune_sweverify.sh
 fi
 
 if [[ "${RUN_LLM_LOGIT:-0}" == "1" ]]; then
   echo "[repro] === 5d. local LLM-logit architecture comparison ==="
-  bash scripts/run_earlyeval_09_llm_logit_full16.sh
+  bash scripts/run_earlyeval_09_llm_logit_sweverify.sh
 fi
 
 if [[ "${BUILD_TABLES:-0}" == "1" ]]; then
   echo "[repro] === 6. rebuild paper tables from completed artifacts ==="
   export SWEBENCH_PACKAGE_ROOT="${SWEBENCH_PACKAGE_ROOT:-${ROOT_DIR}}"
   export RQ_TABLES_OUT="${RQ_TABLES_OUT:-${ROOT_DIR}/paper/results/rq_tables_reproduced}"
-  "${PYTHON_BIN}" paper_reporting/build_rq_tables_bundle.py
+  "${PYTHON_BIN}" reporting/build_rq_tables.py
 fi
 
 echo "[repro] done"

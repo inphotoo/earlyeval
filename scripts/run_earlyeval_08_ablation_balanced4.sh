@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Representative 4-fold SWEVerify ablation slice over the filtered 16-model set.
+# Representative SWEVerify ablation slice over the filtered held-out model set.
 # Approximate trajectory success rates: 0.54, 0.60, 0.66, 0.71.
 RUN_SUBDIR="${RUN_SUBDIR:-sweverify_ablation_balanced4}"
 PROFILES="${PROFILES:-feature_groups component_with_model_id component_default_reg}"

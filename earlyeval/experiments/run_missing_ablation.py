@@ -26,9 +26,9 @@ def parse_args() -> argparse.Namespace:
         "--run-subdirs",
         nargs="+",
         default=[
-            "sweverify_ablation_default_reg_full16",
+            "sweverify_ablation_default_reg",
             "sweverify_ablation_balanced4",
-            "sweverify_ablation_fine_grained_full16",
+            "sweverify_ablation_fine_grained",
         ],
     )
     parser.add_argument("--execute", action="store_true")

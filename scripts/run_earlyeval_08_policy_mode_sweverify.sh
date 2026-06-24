@@ -2,12 +2,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/_earlyeval_full16_models.sh"
+source "${SCRIPT_DIR}/_earlyeval_sweverify_holdout_models.sh"
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
 RUN_DIR="${RUN_DIR:-paper/experiments/earlyeval_lightgbm/lightgbm_main}"
-OUTPUT_DIR="${OUTPUT_DIR:-paper/experiments/earlyeval_lightgbm/policy_ablation/sweverify_policy_mode_full16}"
-TEST_MODELS="${TEST_MODELS:-$(earlyeval_full16_models_string)}"
+OUTPUT_DIR="${OUTPUT_DIR:-paper/experiments/earlyeval_lightgbm/policy_ablation/sweverify_policy_mode}"
+TEST_MODELS="${TEST_MODELS:-$(earlyeval_sweverify_holdout_models_string)}"
 
 EXTRA_ARGS=()
 if [[ "${ALLOW_MISSING:-0}" == "1" ]]; then

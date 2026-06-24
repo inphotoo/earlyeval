@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Full SWEVerify full-16 main pipeline: retrain the dual-head LightGBM on the 16-agent
-# pool, regenerate every downstream artifact and post-hoc reporter, then
+# SWE-bench Verified main pipeline: retrain the dual-head LightGBM on the paper
+# held-out-agent pool, regenerate every downstream artifact and reporter, then
 # refresh the paper-facing CSVs. Stops at the first failing step.
 #
 # Usage (background, recommended; ~3-4h):
-#   nohup bash scripts/run_earlyeval_sweverify_full16_rebuild.sh > sweverify_full16_rebuild.log 2>&1 &
-#   tail -f sweverify_full16_rebuild.log
+#   nohup bash scripts/run_earlyeval_sweverify_rebuild.sh > sweverify_rebuild.log 2>&1 &
+#   tail -f sweverify_rebuild.log
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -29,10 +29,10 @@ sleep 3
 # No fold here has a _SUCCESS yet; drop interrupted partials for a clean run.
 rm -rf "${MAIN}/folds"/* 2>/dev/null || true
 
-echo "[pipeline] === 1. retrain main LightGBM on the paper full-16 agent pool ==="
+echo "[pipeline] === 1. retrain main LightGBM on the paper held-out-agent pool ==="
 bash scripts/run_earlyeval_03_main_lightgbm_execute.sh
 
-echo "[pipeline] === 2. sanity gate: exactly 16 folds, each trained on 15 agents ==="
+echo "[pipeline] === 2. sanity gate: paper held-out-agent folds, each trained on the remaining agents ==="
 "$PY" - <<'PY'
 import glob, json, sys
 fs = sorted(glob.glob("paper/experiments/earlyeval_lightgbm/lightgbm_main/folds/*/split_metadata.json"))
@@ -51,8 +51,8 @@ bash scripts/run_earlyeval_05_lightgbm_policy_sweep_valid_acc.sh
 echo "[pipeline] === 5. reporting_detail (Table 4 frontier + split_check_counts) ==="
 "$PY" -m earlyeval.experiments.build_reporting_detail
 
-echo "[pipeline] === 6. internal_review_swe16 (token/rank/stop-signal); needs network ==="
-"$PY" paper_reporting/build_internal_review_swe16.py \
+echo "[pipeline] === 6. sweverify_review (token/rank/stop-signal); needs network ==="
+"$PY" reporting/build_sweverify_review.py \
   --run-dir paper/experiments/earlyeval_lightgbm/lightgbm_main \
   --tokenizer-mode component_sum_approx
 
@@ -60,6 +60,6 @@ echo "[pipeline] === 7. latency/cost proxy ==="
 bash scripts/run_earlyeval_12_main_latency_cost.sh
 
 echo "[pipeline] === 8. refresh paper-facing CSVs ==="
-"$PY" paper_reporting/build_rq_tables_bundle.py
+"$PY" reporting/build_rq_tables.py
 
-echo "[pipeline] === DONE. All artifacts and tables rebuilt on the SWEVerify full-16 main model. ==="
+echo "[pipeline] === DONE. All artifacts and tables rebuilt for the SWE-bench Verified main model. ==="

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-# Paper SWEVerify 16-fold holdout set.
+# Paper SWE-bench Verified held-out-agent set.
 # Excludes the v2.0 Gemini high outlier and other configured low-coverage folds.
-EARLYEVAL_FULL16_MODEL_IDS=(
+EARLYEVAL_SWEVERIFY_HOLDOUT_MODEL_IDS=(
   "20250807_mini-v1.7.0_gpt-5"
   "20250807_mini-v1.7.0_gpt-5-mini"
   "20250807_mini-v1.7.0_gpt-5-nano"
@@ -29,9 +29,9 @@ EARLYEVAL_EXCLUDED_MODEL_IDS=(
   "20260226_mini-v2.0.0_gemini-3-pro-high"
 )
 
-earlyeval_full16_models_string() {
+earlyeval_sweverify_holdout_models_string() {
   local IFS=" "
-  printf "%s" "${EARLYEVAL_FULL16_MODEL_IDS[*]}"
+  printf "%s" "${EARLYEVAL_SWEVERIFY_HOLDOUT_MODEL_IDS[*]}"
 }
 
 earlyeval_excluded_models_string() {

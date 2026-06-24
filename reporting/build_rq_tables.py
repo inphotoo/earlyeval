@@ -522,7 +522,7 @@ def _build_decisions_all() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, di
 
 
 def _load_tokenizer_helpers() -> Any:
-    candidates = [Path(__file__).with_name("build_internal_review_swe16.py")]
+    candidates = [Path(__file__).with_name("build_sweverify_review.py")]
     for path in candidates:
         if not path.exists():
             continue
@@ -533,7 +533,7 @@ def _load_tokenizer_helpers() -> Any:
         sys.modules[spec.name] = module
         spec.loader.exec_module(module)
         return module
-    raise FileNotFoundError("Could not find build_internal_review_swe16.py for tokenizer helpers.")
+    raise FileNotFoundError("Could not find build_sweverify_review.py for tokenizer helpers.")
 
 
 def _bool_env(value: str | None, default: bool = False) -> bool:
@@ -1579,7 +1579,7 @@ def _summarize_ablation_rows(rows: list[pd.DataFrame]) -> pd.DataFrame:
 
 
 def _build_feature_group_locked095() -> tuple[pd.DataFrame, pd.DataFrame]:
-    base = EXP / "ablations/sweverify/sweverify_ablation_feature_groups_full16"
+    base = EXP / "ablations/sweverify/sweverify_ablation_feature_groups"
     configs = [
         (
             "feature_groups",
@@ -1645,13 +1645,13 @@ def _build_feature_group_locked095() -> tuple[pd.DataFrame, pd.DataFrame]:
 def _build_rq3() -> pd.DataFrame:
     fg_locked, fg_per_fold = _build_feature_group_locked095()
     if not fg_locked.empty:
-        fg_locked.to_csv(SUPPORTING / "rq3_feature_groups_full16_locked095_per_fold_aggregate.csv", index=False)
-        fg_per_fold.to_csv(SUPPORTING / "rq3_feature_groups_full16_locked095_per_fold.csv", index=False)
-        fg_locked.to_csv(PAPER_DATA / "table_ablation_feature_groups_full16_locked095.csv", index=False)
+        fg_locked.to_csv(SUPPORTING / "rq3_feature_groups_sweverify_locked095_per_fold_aggregate.csv", index=False)
+        fg_per_fold.to_csv(SUPPORTING / "rq3_feature_groups_sweverify_locked095_per_fold.csv", index=False)
+        fg_locked.to_csv(PAPER_DATA / "table_ablation_feature_groups_sweverify_locked095.csv", index=False)
     pieces = []
     for name in [
-        "table_ablation_default_reg_full16_locked095.csv",
-        "table_ablation_fine_grained_full16_locked095.csv",
+        "table_ablation_default_reg_sweverify_locked095.csv",
+        "table_ablation_fine_grained_sweverify_locked095.csv",
     ]:
         p = PAPER_DATA / name
         if p.exists():
@@ -1926,7 +1926,7 @@ def _write_latex(
         lines += [
             r"\begin{table}[t]",
             r"\centering",
-            r"\caption{RQ3: SWE-bench Verified full-16 ablations replayed at the locked calibrated operating point ($s=f=0.95$). Feature-group rows are the newly completed full-16 runs; default/fine-grained rows are retained as supporting locked-point comparisons.}",
+            r"\caption{RQ3: SWE-bench Verified paper split ablations replayed at the locked calibrated operating point ($s=f=0.95$). Feature-group rows are the newly completed SWE-bench Verified paper split runs; default/fine-grained rows are retained as supporting locked-point comparisons.}",
             r"\label{tab:rq3_ablation}",
             r"\small",
             r"\setlength{\tabcolsep}{4pt}",
@@ -1968,7 +1968,7 @@ completed held-out prediction parquet files; no models are trained here.
 
 - Operating point for RQ1/RQ2/RQ3 main rows: calibrated dual-head
   `s=f=0.95`, `min_step=0`, `consecutive=1`.
-- SWE-bench Verified uses the full-16 `lightgbm_main` held-out folds.
+- SWE-bench Verified uses the SWE-bench Verified paper split `lightgbm_main` held-out folds.
 - TerminalBench and Toolathlon use the leave-one-agent `rich_af_gold`
   robustness folds, matching the stronger/current RQ2 paper discussion.
 - `threshold_sweep_all_benchmarks.csv` uses the same held-out fold set for
@@ -2004,7 +2004,7 @@ completed held-out prediction parquet files; no models are trained here.
 - `rq2_summary.csv`: all-agent Spearman rho and mean absolute delta P@1.
 - `rq3_ablation_locked095.csv`: locked `s=f=0.95` RQ3 ablations, combining
   existing default/fine-grained locked tables and newly replayed feature-group
-  full-16 rows.
+  SWE-bench Verified paper split rows.
 - `rq3_ablation_locked095_paper.csv`: cleaner paper-facing RQ3 ablation table
   with only the main reporting columns.
 - `token_input_output_summary.csv`: aggregate input/context-call and output
@@ -2061,7 +2061,7 @@ RQ3 locked 0.95 rows:
 
 ```bash
 cd "$SWEBENCH_PACKAGE_ROOT"
-python paper/icse_submission_draft/rq_tables_reorg_20260623/build_rq_tables_bundle.py
+python paper/icse_submission_draft/rq_tables_reorg_20260623/build_rq_tables.py
 ```
 """
     # Keep README.md as the hand-maintained usage guide. The generated snapshot
@@ -2141,7 +2141,7 @@ def main() -> None:
 
     swe_token = (
         EXP
-        / "lightgbm_main/internal_review_swe16/fixed_symmetric_threshold_token_savings_model_tokenizers.csv"
+        / "lightgbm_main/sweverify_review/fixed_symmetric_threshold_token_savings_model_tokenizers.csv"
     )
     if swe_token.exists():
         pd.read_csv(swe_token).to_csv(

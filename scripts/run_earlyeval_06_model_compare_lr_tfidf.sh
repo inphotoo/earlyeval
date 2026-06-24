@@ -10,7 +10,7 @@ SMOKE_TRAJECTORIES_PER_SPLIT="${SMOKE_TRAJECTORIES_PER_SPLIT:-0}"
 VARIANTS="${VARIANTS:-dense_af tfidf_af}"
 RUN_SUBDIR="${RUN_SUBDIR:-lr_tfidf_baselines}"
 # Optional: restrict the run to a comma- or space-separated list of test
-# models. Use this to split the 16-fold sweep across two tmux sessions
+# models. Use this to split the held-out-agent sweep across two tmux sessions
 # without races: pick a different RUN_SUBDIR for each session and pass
 # disjoint TEST_MODELS lists. Per-fold output is always safe across
 # processes; RUN_SUBDIR isolation is just to keep summary files separate.

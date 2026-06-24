@@ -57,7 +57,7 @@ Each fold keeps `valid_predictions_safe_stop.parquet` and
 `test_predictions_safe_stop.parquet` for later analysis.
 Use `run_earlyeval_08_ablation_balanced4.sh` for the paper-facing quick
 ablation slice: it fixes four representative held-out models across the
-filtered 16-model capability range instead of relying on a random seed.
+filtered capability range instead of relying on a random seed.
 
 Run the lightweight robustness baselines on Toolathlon and TerminalBench:
 

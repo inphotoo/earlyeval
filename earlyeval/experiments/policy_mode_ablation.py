@@ -365,7 +365,7 @@ def run_policy_mode_ablation(args: argparse.Namespace) -> dict[str, Any]:
     cfg = load_earlyeval_config(args.config)
     experiment_root = _default_output_dir(cfg, "earlyeval_lightgbm")
     run_dir = args.run_dir or (experiment_root / "lightgbm_main")
-    output_dir = ensure_dir(args.output_dir or (experiment_root / "policy_ablation" / "sweverify_policy_mode_full16"))
+    output_dir = ensure_dir(args.output_dir or (experiment_root / "policy_ablation" / "sweverify_policy_mode"))
     folds = [row for row in _eligible_lightgbm_folds(cfg, dataset="sweverify") if row["eligible"]]
     if args.test_models:
         wanted = set(str(item) for item in args.test_models)

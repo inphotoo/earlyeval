@@ -21,16 +21,14 @@ tables, tokenizer caches, or other run artifacts.
 - `earlyeval/vendor/architecture_baselines/`: architecture baselines used for
   model comparison, including direct MLP, BERT/CodeBERT, local LLM-logit, and
   Qwen fine-tuning code.
-- `scripts/`: shell entrypoints for preflight checks, SWE full-16 LightGBM
+- `scripts/`: shell entrypoints for SWE-bench Verified LightGBM
   runs, robustness runs, ablations, LR/TF-IDF, MLP, BERT/CodeBERT, LLM-logit,
   latency/cost audits, and full reproduction orchestration.
 - `configs/`: portable experiment configuration and policy presets.
   `configs/paths.yaml` is intentionally not committed because it is
   machine-local; copy `configs/paths.example.yaml` if you want a local override.
-- `paper_reporting/`: code that rebuilds the paper-facing RQ tables from
+- `reporting/`: code that rebuilds the paper-facing RQ tables from
   completed artifacts.
-- `VERIFY_RELEASE_LOCAL.sh`: local audit script that checks this code release
-  against the active training/testing source tree.
 
 ## Not Included
 
@@ -121,7 +119,7 @@ SWE_PARQUET_DIR=/path/to/swe/tool-parquets \
 bash scripts/run_earlyeval_00_build_swe_shared_artifacts.sh
 ```
 
-Run the SWE-bench Verified full-16 LightGBM main experiment:
+Run the SWE-bench Verified held-out-agent LightGBM main experiment:
 
 ```bash
 bash scripts/run_earlyeval_03_main_lightgbm_execute.sh
@@ -136,32 +134,32 @@ Run TerminalBench and Toolathlon leave-one-agent robustness:
 bash scripts/run_earlyeval_robustness_loo_answer_features_memory_limited.sh
 ```
 
-Run the SWE-bench Verified full-16 feature and component ablations:
+Run the SWE-bench Verified held-out-agent feature and component ablations:
 
 ```bash
-source scripts/_earlyeval_full16_models.sh
+source scripts/_earlyeval_sweverify_holdout_models.sh
 
-RUN_SUBDIR=sweverify_ablation_feature_groups_full16 \
+RUN_SUBDIR=sweverify_ablation_feature_groups \
 PROFILES=feature_groups \
-TEST_MODELS="$(earlyeval_full16_models_string)" \
+TEST_MODELS="$(earlyeval_sweverify_holdout_models_string)" \
 bash scripts/run_earlyeval_08_ablation_execute.sh
 
-RUN_SUBDIR=sweverify_ablation_feature_groups_full16 \
+RUN_SUBDIR=sweverify_ablation_feature_groups \
 PROFILES=component_with_model_id \
-TEST_MODELS="$(earlyeval_full16_models_string)" \
+TEST_MODELS="$(earlyeval_sweverify_holdout_models_string)" \
 bash scripts/run_earlyeval_08_ablation_execute.sh
 
-bash scripts/run_earlyeval_08_ablation_default_reg_full16.sh
-bash scripts/run_earlyeval_08_ablation_fine_grained_full16.sh
+bash scripts/run_earlyeval_08_ablation_default_reg_sweverify.sh
+bash scripts/run_earlyeval_08_ablation_fine_grained_sweverify.sh
 ```
 
 Run architecture comparisons:
 
 ```bash
 bash scripts/run_earlyeval_06_model_compare_lr_tfidf.sh
-bash scripts/run_earlyeval_09_direct_mlp_full16.sh
-bash scripts/run_earlyeval_09_bert_finetune_full16.sh
-bash scripts/run_earlyeval_09_llm_logit_full16.sh
+bash scripts/run_earlyeval_09_direct_mlp_sweverify.sh
+bash scripts/run_earlyeval_09_bert_finetune_sweverify.sh
+bash scripts/run_earlyeval_09_llm_logit_sweverify.sh
 ```
 
 Rebuild paper-facing tables from completed artifacts:
@@ -172,7 +170,7 @@ export EARLYEVAL_EXPERIMENT_DIR=/path/to/paper/experiments/earlyeval_lightgbm
 export EARLYEVAL_PAPER_DATA=/path/to/paper/icse_submission_draft/data
 export RQ_TABLES_OUT=/path/to/output/rq_tables
 
-python paper_reporting/build_rq_tables_bundle.py
+python reporting/build_rq_tables.py
 ```
 
 The table builder is included as code. Its CSV/TeX outputs are generated files
@@ -190,8 +188,8 @@ source files are:
   human-readable feature family documentation.
 - `earlyeval/vendor/prefix_predict_model_holdout_answer/model_holdout_shadow_valid_retrain.py`:
   leave-one-model training/evaluation backbone used by the SWE folds.
-- `earlyeval/experiments/paper_pipeline.py`: full-16 LightGBM orchestration.
-- `earlyeval/experiments/sweverify_ablation.py`: full-16 ablation orchestration.
+- `earlyeval/experiments/paper_pipeline.py`: SWE-bench Verified LightGBM orchestration.
+- `earlyeval/experiments/sweverify_ablation.py`: SWE-bench Verified ablation orchestration.
 - `earlyeval/experiments/lr_tfidf_baselines.py`: LR/TF-IDF comparison features.
 - `earlyeval/vendor/architecture_baselines/train_direct_dual_head_mlp.py`:
   direct MLP baseline over the shared feature representation.
@@ -200,15 +198,3 @@ source files are:
 
 For the main run, concrete `model_id` identity is masked from training
 features unless a component ablation explicitly enables it.
-
-## Local Release Audit
-
-Before pushing a refreshed code release, run:
-
-```bash
-bash VERIFY_RELEASE_LOCAL.sh /path/to/earlyeval
-```
-
-The audit checks that `earlyeval/`, `scripts/`, `configs/` except
-`configs/paths.yaml`, and the reporting scripts match the active source tree.
-It also compiles Python files and syntax-checks shell scripts.

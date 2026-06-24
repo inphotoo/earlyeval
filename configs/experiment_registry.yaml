@@ -147,43 +147,43 @@ experiments:
     default_enabled: false
 
   direct_mlp:
-    status: completed_current_full16_included
+    status: completed_current_sweverify_included
     cost: high
     group: architecture_baselines
-    command: "bash scripts/run_earlyeval_09_direct_mlp_full16.sh"
+    command: "bash scripts/run_earlyeval_09_direct_mlp_sweverify.sh"
     source: "earlyeval/vendor/architecture_baselines/train_direct_dual_head_mlp.py"
     outputs:
-      - "paper/experiments/earlyeval_lightgbm/model_compare/direct_mlp_full16_ij"
+      - "paper/experiments/earlyeval_lightgbm/model_compare/direct_mlp_sweverify_ij"
     default_enabled: false
 
   bert_codebert:
-    status: optional_heavy_excluded_current_scope_partial_8_of_16
+    status: optional_heavy_excluded_current_scope_partial_paper_split
     cost: high
     group: architecture_baselines
-    command: "bash scripts/run_earlyeval_09_bert_finetune_full16.sh"
+    command: "bash scripts/run_earlyeval_09_bert_finetune_sweverify.sh"
     source: "earlyeval/vendor/architecture_baselines/bert_baselines"
     outputs:
-      - "paper/experiments/earlyeval_lightgbm/model_compare/bert_codebert_finetune_full16_e3"
+      - "paper/experiments/earlyeval_lightgbm/model_compare/bert_codebert_finetune_sweverify_e3"
     default_enabled: false
 
   qwen_lora:
-    status: completed_current_full16_lomo_logit_sweep_included
+    status: completed_current_sweverify_lomo_logit_sweep_included
     cost: high
     group: architecture_baselines
     source: "earlyeval/vendor/architecture_baselines/qwen_finetune_baselines"
     outputs:
-      - "paper/experiments/earlyeval_lightgbm/model_compare/llm_logit_lomo_full16"
-      - "paper/icse_submission_draft/data/table_llm_logit_lomo_threshold_summary_full16.csv"
-      - "paper/icse_submission_draft/data/table_llm_logit_lomo_representative_full16.csv"
+      - "paper/experiments/earlyeval_lightgbm/model_compare/llm_logit_lomo_sweverify"
+      - "paper/icse_submission_draft/data/table_llm_logit_lomo_threshold_summary_sweverify.csv"
+      - "paper/icse_submission_draft/data/table_llm_logit_lomo_representative_sweverify.csv"
     default_enabled: false
 
   llm_logit_judge:
-    status: completed_current_full16_qwen_lora_lomo_included
+    status: completed_current_sweverify_qwen_lora_lomo_included
     cost: high
     group: architecture_baselines
-    command: "bash scripts/run_earlyeval_09_llm_logit_full16.sh"
+    command: "bash scripts/run_earlyeval_09_llm_logit_sweverify.sh"
     source: "earlyeval/vendor/architecture_baselines/llm_logit_baselines"
     outputs:
-      - "paper/experiments/earlyeval_lightgbm/model_compare/llm_logit_lomo_full16"
-      - "paper/icse_submission_draft/data/table_architecture_compare_full16.csv"
+      - "paper/experiments/earlyeval_lightgbm/model_compare/llm_logit_lomo_sweverify"
+      - "paper/icse_submission_draft/data/table_architecture_compare_sweverify.csv"
     default_enabled: false
