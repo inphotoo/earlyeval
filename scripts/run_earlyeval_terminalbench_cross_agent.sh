@@ -13,6 +13,7 @@ MAX_CPU_THREADS="${MAX_CPU_THREADS:-1}"
 VMEM_GB="${VMEM_GB:-48}"
 FOLD_TIMEOUT="${FOLD_TIMEOUT:-8h}"
 ONLY_TEST_MODELS="${ONLY_TEST_MODELS:-}"
+TOKEN_PREFIX_CACHE="${TOKEN_PREFIX_CACHE:-}"
 
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=1
@@ -58,6 +59,14 @@ fi
 prlimit "--as=$((vmem_kb * 1024))" -- timeout --signal=TERM --kill-after=120s "${FOLD_TIMEOUT}" \
   "${PYTHON_BIN}" "${args[@]}"
 
-"${PYTHON_BIN}" -m earlyeval.experiments.harness_debug_terminalbench_summary \
-  --run-dir "${OUTPUT_DIR}/${RUN_SUBDIR}" \
+summary_args=(
+  -m earlyeval.experiments.harness_debug_terminalbench_summary
+  --run-dir "${OUTPUT_DIR}/${RUN_SUBDIR}"
   --output-dir "${OUTPUT_DIR}/${RUN_SUBDIR}/summary/fixed_thresholds_main_aligned"
+)
+
+if [[ -n "${TOKEN_PREFIX_CACHE}" ]]; then
+  summary_args+=(--token-prefix-cache "${TOKEN_PREFIX_CACHE}")
+fi
+
+"${PYTHON_BIN}" "${summary_args[@]}"

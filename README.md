@@ -140,13 +140,24 @@ Run the TerminalBench cross-agent harness-debugging robustness experiment:
 bash scripts/run_earlyeval_terminalbench_cross_agent.sh
 ```
 
+If a model-tokenizer prefix cache is available, pass it to include input/output
+token savings in the generated summary:
+
+```bash
+TOKEN_PREFIX_CACHE=/path/to/terminalbench_model_tokenizer_source_split_prefix_tokens.parquet \
+bash scripts/run_earlyeval_terminalbench_cross_agent.sh
+```
+
 Rebuild the TerminalBench fixed-threshold and within-model agent-ranking
-summaries from completed cross-agent prediction files:
+summaries from completed cross-agent prediction files. Add
+`--token-prefix-cache` to join tokenizer-based token savings; omit it for
+step-only summaries:
 
 ```bash
 python -m earlyeval.experiments.harness_debug_terminalbench_summary \
   --run-dir paper/experiments/cross_agent_harness/terminalbench_cross_agent_leave_one_unit \
-  --output-dir paper/experiments/cross_agent_harness/terminalbench_cross_agent_leave_one_unit/summary/fixed_thresholds_main_aligned
+  --output-dir paper/experiments/cross_agent_harness/terminalbench_cross_agent_leave_one_unit/summary/fixed_thresholds_main_aligned \
+  --token-prefix-cache /path/to/terminalbench_model_tokenizer_source_split_prefix_tokens.parquet
 ```
 
 Run the SWE-bench Verified held-out-agent feature and component ablations:
