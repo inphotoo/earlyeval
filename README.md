@@ -134,6 +134,21 @@ Run TerminalBench and Toolathlon leave-one-agent robustness:
 bash scripts/run_earlyeval_robustness_loo_answer_features_memory_limited.sh
 ```
 
+Run the TerminalBench cross-agent harness-debugging robustness experiment:
+
+```bash
+bash scripts/run_earlyeval_terminalbench_cross_agent.sh
+```
+
+Rebuild the TerminalBench fixed-threshold and within-model agent-ranking
+summaries from completed cross-agent prediction files:
+
+```bash
+python -m earlyeval.experiments.harness_debug_terminalbench_summary \
+  --run-dir paper/experiments/cross_agent_harness/terminalbench_cross_agent_leave_one_unit \
+  --output-dir paper/experiments/cross_agent_harness/terminalbench_cross_agent_leave_one_unit/summary/fixed_thresholds_main_aligned
+```
+
 Run the SWE-bench Verified held-out-agent feature and component ablations:
 
 ```bash
