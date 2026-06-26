@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import gc
 import json
 import math
@@ -59,6 +60,20 @@ ACTION_FEEDBACK_TEXT_COLUMNS = [
     "last_action_text",
     "last_feedback_text",
 ]
+
+
+def _release_memory() -> None:
+    gc.collect()
+    try:
+        import pyarrow as pa
+
+        pa.default_memory_pool().release_unused()
+    except Exception:
+        pass
+    try:
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:
+        pass
 
 
 def _legacy_module_root() -> Path:
@@ -567,6 +582,33 @@ def _read_one_split_frame_streamed(
     split_name: str,
     parquet_batch_size: int,
 ) -> pd.DataFrame:
+    chunks = [
+        part
+        for part in _iter_split_frame_parts_streamed(
+            path,
+            spec,
+            feature_preset=feature_preset,
+            plan=plan,
+            split_name=split_name,
+            parquet_batch_size=parquet_batch_size,
+        )
+    ]
+    frame = pd.concat(chunks, ignore_index=True, copy=False) if chunks else pd.DataFrame()
+    del chunks
+    _release_memory()
+    return frame
+
+
+def _iter_split_frame_parts_streamed(
+    path: Path,
+    spec: dict[str, Any],
+    *,
+    feature_preset: str,
+    plan: dict[str, Any],
+    split_name: str,
+    parquet_batch_size: int,
+    text_columns_override: list[str] | None = None,
+):
     import pyarrow.parquet as pq
 
     pf = pq.ParquetFile(path)
@@ -585,7 +627,8 @@ def _read_one_split_frame_streamed(
         *COMMON_CATEGORICAL_FEATURES,
     ]
     if feature_preset == "rich_af_gold":
-        base_columns.extend([col for col in ACTION_FEEDBACK_TEXT_COLUMNS if col in present])
+        text_columns = ACTION_FEEDBACK_TEXT_COLUMNS if text_columns_override is None else text_columns_override
+        base_columns.extend([col for col in text_columns if col in present])
         base_columns.extend([col for col in present if col.startswith("gold_") and not col.endswith("_text")])
     columns = [str(col) for col in dict.fromkeys(base_columns) if str(col) in present]
     rename = {
@@ -596,7 +639,6 @@ def _read_one_split_frame_streamed(
         str(spec.get("label_col", "label")): "label",
     }
 
-    chunks: list[pd.DataFrame] = []
     batch_size = max(1, int(parquet_batch_size))
     for batch in pf.iter_batches(batch_size=batch_size, columns=columns):
         chunk = batch.to_pandas().rename(columns=rename)
@@ -612,15 +654,11 @@ def _read_one_split_frame_streamed(
             chunk["sample_weight"] = (1.0 / denom).astype(np.float32)
         mask = _split_mask_by_plan(chunk, plan, split_name)
         if bool(mask.any()):
-            chunks.append(chunk.loc[mask].copy())
+            part = chunk.loc[mask].copy()
+            yield _annotate_split_frame(part, split_name)
+            del part
         del chunk, mask
-        gc.collect()
-
-    renamed_columns = [rename.get(col, col) for col in columns]
-    frame = pd.concat(chunks, ignore_index=True, copy=False) if chunks else pd.DataFrame(columns=renamed_columns)
-    del chunks
-    gc.collect()
-    return _annotate_split_frame(frame, split_name)
+        _release_memory()
 
 
 def _read_split_frames_streamed(
@@ -810,6 +848,289 @@ def _fit_feature_schema(
     return schema, {"text_blocks": text_blocks}
 
 
+def _first_split_part_streamed(
+    path: Path,
+    spec: dict[str, Any],
+    *,
+    feature_preset: str,
+    plan: dict[str, Any],
+    split_name: str,
+    parquet_batch_size: int,
+    text_columns_override: list[str] | None = None,
+) -> pd.DataFrame:
+    for part in _iter_split_frame_parts_streamed(
+        path,
+        spec,
+        feature_preset=feature_preset,
+        plan=plan,
+        split_name=split_name,
+        parquet_batch_size=max(int(parquet_batch_size), 65536) if text_columns_override == [] else parquet_batch_size,
+        text_columns_override=text_columns_override,
+    ):
+        if not part.empty:
+            sample = part.head(1).copy()
+            del part
+            _release_memory()
+            return sample
+    return pd.DataFrame()
+
+
+def _present_action_feedback_text_columns(path: Path) -> list[str]:
+    import pyarrow.parquet as pq
+
+    present = set(pq.ParquetFile(path).schema_arrow.names)
+    return [col for col in ACTION_FEEDBACK_TEXT_COLUMNS if col in present]
+
+
+def _iter_split_text_values_streamed(
+    path: Path,
+    spec: dict[str, Any],
+    *,
+    plan: dict[str, Any],
+    split_name: str,
+    parquet_batch_size: int,
+    text_column: str,
+):
+    text_batch_size = int(parquet_batch_size)
+    if text_column in {"task_prompt_text", "last_action_text"}:
+        text_batch_size = max(text_batch_size, 8192)
+    elif text_column in {"prefix_action_text", "last_feedback_text"}:
+        text_batch_size = max(text_batch_size, 256)
+    elif text_column == "prefix_feedback_text":
+        text_batch_size = min(max(text_batch_size, 1), 64)
+    for part in _iter_split_frame_parts_streamed(
+        path,
+        spec,
+        feature_preset="rich_af_gold",
+        plan=plan,
+        split_name=split_name,
+        parquet_batch_size=text_batch_size,
+        text_columns_override=[text_column],
+    ):
+        if text_column not in part:
+            del part
+            continue
+        values = part[text_column]
+        for value in values:
+            yield "" if pd.isna(value) else str(value)
+        del part
+        _release_memory()
+
+
+def _new_split_stats() -> dict[str, Any]:
+    return {
+        "rows": 0,
+        "traj_ids": set(),
+        "instance_ids": set(),
+        "models": set(),
+        "summary": {},
+    }
+
+
+def _update_split_stats(stats: dict[str, Any], split_frame: pd.DataFrame) -> None:
+    stats["rows"] += int(len(split_frame))
+    stats["traj_ids"].update(split_frame["traj_id"].astype(str).dropna().tolist())
+    stats["instance_ids"].update(split_frame["instance_id"].astype(str).dropna().tolist())
+    stats["models"].update(split_frame["orig_model_id"].astype(str).dropna().tolist())
+    for model_id, part in split_frame.groupby("orig_model_id", sort=False):
+        key = str(model_id)
+        entry = stats["summary"].setdefault(
+            key,
+            {
+                "instances": set(),
+                "trajectories": set(),
+                "prefixes": 0,
+                "label_sum": 0.0,
+            },
+        )
+        entry["instances"].update(part["instance_id"].astype(str).dropna().tolist())
+        entry["trajectories"].update(part["traj_id"].astype(str).dropna().tolist())
+        entry["prefixes"] += int(len(part))
+        entry["label_sum"] += float(pd.to_numeric(part["label"], errors="coerce").fillna(0.0).sum())
+
+
+def _finalize_split_info(stats: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "rows": int(stats["rows"]),
+        "trajectories": int(len(stats["traj_ids"])),
+        "instances": int(len(stats["instance_ids"])),
+        "models": sorted(str(item) for item in stats["models"]),
+        "instance_ids": set(str(item) for item in stats["instance_ids"]),
+    }
+
+
+def _finalize_split_summary_rows(
+    stats: dict[str, Any],
+    *,
+    dataset: str,
+    split_name: str,
+    plan: dict[str, Any],
+) -> list[dict[str, Any]]:
+    rows = []
+    test_models = set(plan["test_models"])
+    for model_id, entry in sorted(stats["summary"].items()):
+        prefixes = int(entry["prefixes"])
+        rows.append(
+            {
+                "dataset": dataset,
+                "split": split_name,
+                "orig_model_id": model_id,
+                "instances": int(len(entry["instances"])),
+                "trajectories": int(len(entry["trajectories"])),
+                "prefixes": prefixes,
+                "label_rate": float(entry["label_sum"] / prefixes) if prefixes else float("nan"),
+                "is_heldout_test_model": model_id in test_models,
+            }
+        )
+    return rows
+
+
+def _fit_feature_schema_streamed(
+    path: Path,
+    spec: dict[str, Any],
+    *,
+    plan: dict[str, Any],
+    split_name: str,
+    parquet_batch_size: int,
+    numeric: list[str],
+    categorical: list[str],
+    text_columns: list[str],
+    args: argparse.Namespace,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    category_values = {col: set() for col in categorical}
+    for part in _iter_split_frame_parts_streamed(
+        path,
+        spec,
+        feature_preset=args.feature_preset,
+        plan=plan,
+        split_name=split_name,
+        parquet_batch_size=max(int(parquet_batch_size), 65536),
+        text_columns_override=[],
+    ):
+        for col in categorical:
+            if col in part:
+                category_values[col].update(part[col].fillna("__NULL__").astype(str).unique().tolist())
+        del part
+        _release_memory()
+
+    categories = {col: sorted(values) for col, values in category_values.items()}
+    text_blocks = {}
+    text_schema_rows = []
+    for col in text_columns:
+        print(f"[robustness] fitting streamed TF-IDF column={col}", flush=True)
+        vectorizer = TfidfVectorizer(
+            ngram_range=(1, int(args.tfidf_ngram_max)),
+            min_df=int(args.tfidf_min_df),
+            max_features=int(args.tfidf_max_features),
+            sublinear_tf=True,
+            dtype=np.float32,
+        )
+        texts = _iter_split_text_values_streamed(
+            path,
+            spec,
+            plan=plan,
+            split_name=split_name,
+            parquet_batch_size=parquet_batch_size,
+            text_column=col,
+        )
+        try:
+            X_text = vectorizer.fit_transform(texts)
+        except ValueError:
+            text_schema_rows.append({"column": col, "vocabulary_size": 0, "svd_components": 0, "enabled": False})
+            continue
+        reducer = None
+        n_features = int(X_text.shape[1])
+        n_rows = int(X_text.shape[0])
+        svd_components = 0
+        max_components = min(int(args.tfidf_svd_dim), n_features - 1, n_rows - 1)
+        if max_components >= 2:
+            reducer = TruncatedSVD(n_components=max_components, random_state=42)
+            reducer.fit(X_text)
+            svd_components = int(max_components)
+        text_blocks[col] = {"vectorizer": vectorizer, "reducer": reducer}
+        text_schema_rows.append(
+            {
+                "column": col,
+                "vocabulary_size": n_features,
+                "svd_components": svd_components,
+                "enabled": True,
+            }
+        )
+        del X_text
+        _release_memory()
+
+    schema = {
+        "feature_preset": args.feature_preset,
+        "numeric": numeric,
+        "categorical": categorical,
+        "categories": categories,
+        "text_blocks": text_schema_rows,
+        "tfidf": {
+            "ngram_range": [1, int(args.tfidf_ngram_max)],
+            "min_df": int(args.tfidf_min_df),
+            "max_features": int(args.tfidf_max_features),
+            "svd_dim": int(args.tfidf_svd_dim),
+        },
+    }
+    return schema, {"text_blocks": text_blocks}
+
+
+def _build_train_features_streamed(
+    path: Path,
+    spec: dict[str, Any],
+    *,
+    dataset: str,
+    plan: dict[str, Any],
+    parquet_batch_size: int,
+    schema: dict[str, Any],
+    transformers: dict[str, Any],
+    legacy: dict[str, Any],
+    safe_label_min_step: int,
+) -> tuple[sparse.csr_matrix, np.ndarray, np.ndarray, np.ndarray, dict[str, Any], list[dict[str, Any]]]:
+    matrix_parts: list[sparse.spmatrix] = []
+    success_parts: list[np.ndarray] = []
+    failure_parts: list[np.ndarray] = []
+    weight_parts: list[np.ndarray] = []
+    stats = _new_split_stats()
+    rows_seen = 0
+
+    for part in _iter_split_frame_parts_streamed(
+        path,
+        spec,
+        feature_preset="rich_af_gold",
+        plan=plan,
+        split_name="train",
+        parquet_batch_size=parquet_batch_size,
+    ):
+        if part.empty:
+            continue
+        _update_split_stats(stats, part)
+        y_success, y_failure = legacy["_safe_targets"](part, safe_label_min_step)
+        success_parts.append(np.asarray(y_success))
+        failure_parts.append(np.asarray(y_failure))
+        weight_parts.append(part["sample_weight"].to_numpy(dtype=np.float32))
+        matrix_parts.append(_build_features(part, schema, transformers))
+        rows_seen += int(len(part))
+        if rows_seen and rows_seen % 50000 < int(len(part)):
+            print(f"[robustness] built streamed train rows={rows_seen}", flush=True)
+        del part, y_success, y_failure
+        _release_memory()
+
+    if not matrix_parts:
+        raise ValueError(f"{dataset}: empty split train=0")
+    X_train = sparse.vstack(matrix_parts, format="csr").astype(np.float32)
+    del matrix_parts
+    _release_memory()
+    return (
+        X_train,
+        np.concatenate(success_parts).astype(np.int8),
+        np.concatenate(failure_parts).astype(np.int8),
+        np.concatenate(weight_parts).astype(np.float32),
+        _finalize_split_info(stats),
+        _finalize_split_summary_rows(stats, dataset=dataset, split_name="train", plan=plan),
+    )
+
+
 def _build_features(frame: pd.DataFrame, schema: dict[str, Any], transformers: dict[str, Any]) -> sparse.csr_matrix:
     numeric = list(schema["numeric"])
     categorical = list(schema["categorical"])
@@ -878,6 +1199,10 @@ def _fit_lgbm(
         verbosity=-1,
     )
     model.fit(X_train, y_train, sample_weight=sample_weight)
+    booster = getattr(model, "booster_", None)
+    if booster is not None and hasattr(booster, "free_dataset"):
+        booster.free_dataset()
+    _release_memory()
     return model, {"constant": False, "best_iteration": int(getattr(model, "best_iteration_", 0) or 0)}
 
 
@@ -914,6 +1239,75 @@ def _save_model(path: Path, model: Any) -> None:
         pickle.dump(model, handle)
 
 
+def _predict_split_streamed(
+    path: Path,
+    spec: dict[str, Any],
+    *,
+    dataset: str,
+    feature_preset: str,
+    plan: dict[str, Any],
+    split_name: str,
+    parquet_batch_size: int,
+    schema: dict[str, Any],
+    transformers: dict[str, Any],
+    trained_heads: list[dict[str, Any]],
+    legacy: dict[str, Any],
+    predictor: str,
+    safe_label_min_step: int,
+) -> tuple[pd.DataFrame, dict[str, np.ndarray], np.ndarray, dict[str, np.ndarray], dict[str, Any], list[dict[str, Any]]]:
+    pred_parts: list[pd.DataFrame] = []
+    target_parts: dict[str, list[np.ndarray]] = {"safe_success": [], "safe_failure": []}
+    raw_parts: dict[str, list[np.ndarray]] = {str(head["head_name"]): [] for head in trained_heads}
+    weight_parts: list[np.ndarray] = []
+
+    for part in _iter_split_frame_parts_streamed(
+        path,
+        spec,
+        feature_preset=feature_preset,
+        plan=plan,
+        split_name=split_name,
+        parquet_batch_size=parquet_batch_size,
+    ):
+        if part.empty:
+            continue
+        y_success, y_failure = legacy["_safe_targets"](part, safe_label_min_step)
+        target_parts["safe_success"].append(np.asarray(y_success))
+        target_parts["safe_failure"].append(np.asarray(y_failure))
+        weight_parts.append(part["sample_weight"].to_numpy(dtype=np.float32))
+
+        pred = _prediction_frame(part)
+        X_part = _build_features(part, schema, transformers)
+        for head in trained_heads:
+            head_name = str(head["head_name"])
+            column_prefix = str(head["column_prefix"])
+            raw = _positive_probability(head["model"], X_part)
+            raw_parts[head_name].append(raw)
+            pred[legacy["_head_column"](column_prefix, "raw", predictor)] = raw.astype(np.float32)
+
+        pred_parts.append(pred)
+        del part, pred, X_part, y_success, y_failure
+        _release_memory()
+
+    if not pred_parts:
+        raise ValueError(f"{dataset}: empty split {split_name}=0")
+
+    pred_frame = pd.concat(pred_parts, ignore_index=True, copy=False)
+    del pred_parts
+    targets = {
+        key: np.concatenate(values) if values else np.asarray([], dtype=np.int8)
+        for key, values in target_parts.items()
+    }
+    raw_outputs = {
+        key: np.concatenate(values) if values else np.asarray([], dtype=np.float64)
+        for key, values in raw_parts.items()
+    }
+    weights = np.concatenate(weight_parts).astype(np.float32) if weight_parts else np.asarray([], dtype=np.float32)
+    split_info = _split_info(pred_frame)
+    split_summary_rows = _split_summary_rows(pred_frame, dataset=dataset, split_name=split_name, plan=plan)
+    _release_memory()
+    return pred_frame, targets, weights, raw_outputs, split_info, split_summary_rows
+
+
 def _run_dataset(
     *,
     cfg: Any,
@@ -948,20 +1342,21 @@ def _run_dataset(
             min_steps=min_steps,
             smoke_trajectories_per_split=int(args.smoke_trajectories_per_split),
         )
-        df_train = _read_one_split_frame_streamed(
+        sample_for_columns = _first_split_part_streamed(
             path,
             spec,
             feature_preset=args.feature_preset,
             plan=split_plan,
             split_name="train",
             parquet_batch_size=int(args.parquet_batch_size),
+            text_columns_override=[],
         )
-        if df_train.empty:
-            raise ValueError(f"{dataset}: empty split train={len(df_train)}")
-        split_infos = {"train": _split_info(df_train)}
-        split_summary_rows = _split_summary_rows(df_train, dataset=dataset, split_name="train", plan=split_plan)
-        df_train = _sample_rows(df_train, max_rows=int(args.max_train_rows), seed=_stable_seed(cfg.seed, dataset, "train_rows"))
-        sample_for_columns = df_train.head(1).copy()
+        if sample_for_columns.empty:
+            raise ValueError(f"{dataset}: empty split train=0")
+        if int(args.max_train_rows) > 0:
+            raise ValueError("rich_af_gold streaming train path does not support max_train_rows sampling.")
+        split_infos = {}
+        split_summary_rows = []
         split_meta = None
         split_summary = None
     else:
@@ -992,25 +1387,57 @@ def _run_dataset(
         legacy=legacy,
         feature_preset=args.feature_preset,
     )
-    schema, transformers = _fit_feature_schema(
-        df_train,
-        numeric,
-        categorical,
-        text_columns,
-        args=args,
-    )
-    y_success_train, y_failure_train = legacy["_safe_targets"](df_train, args.safe_label_min_step)
-    w_train = df_train["sample_weight"].to_numpy(dtype=np.float32)
+    if args.feature_preset == "rich_af_gold":
+        text_columns = _present_action_feedback_text_columns(path)
+    if args.feature_preset == "rich_af_gold":
+        assert split_plan is not None and split_infos is not None and split_summary_rows is not None
+        schema, transformers = _fit_feature_schema_streamed(
+            path,
+            spec,
+            plan=split_plan,
+            split_name="train",
+            parquet_batch_size=int(args.parquet_batch_size),
+            numeric=numeric,
+            categorical=categorical,
+            text_columns=text_columns,
+            args=args,
+        )
+        X_train, y_success_train, y_failure_train, w_train, train_info, train_summary_rows = _build_train_features_streamed(
+            path,
+            spec,
+            dataset=dataset,
+            plan=split_plan,
+            parquet_batch_size=int(args.parquet_batch_size),
+            schema=schema,
+            transformers=transformers,
+            legacy=legacy,
+            safe_label_min_step=int(args.safe_label_min_step),
+        )
+        split_infos["train"] = train_info
+        split_summary_rows.extend(train_summary_rows)
+        train_rows = int(X_train.shape[0])
+        feature_count = int(X_train.shape[1])
+    else:
+        schema, transformers = _fit_feature_schema(
+            df_train,
+            numeric,
+            categorical,
+            text_columns,
+            args=args,
+        )
+        y_success_train, y_failure_train = legacy["_safe_targets"](df_train, args.safe_label_min_step)
+        w_train = df_train["sample_weight"].to_numpy(dtype=np.float32)
 
     fit_rows = []
     cal_rows = []
     trained_heads = []
     models_dir = ensure_dir(dataset_dir / "models") if not args.no_save_models else None
-    X_train = _build_features(df_train, schema, transformers)
-    train_rows = int(X_train.shape[0])
-    feature_count = int(X_train.shape[1])
-    del df_train
-    gc.collect()
+    if args.feature_preset != "rich_af_gold":
+        X_train = _build_features(df_train, schema, transformers)
+        train_rows = int(X_train.shape[0])
+        feature_count = int(X_train.shape[1])
+        del df_train
+        _release_memory()
     for head_name, y_train, column_prefix, seed_offset in (
         ("safe_success", y_success_train, "success", 0),
         ("safe_failure", y_failure_train, "failure", 97),
@@ -1047,64 +1474,63 @@ def _run_dataset(
             }
         )
     del X_train, y_success_train, y_failure_train, w_train
-    gc.collect()
+    _release_memory()
 
+    valid_outputs = {}
     if args.feature_preset == "rich_af_gold":
+        if int(args.max_valid_rows) > 0 or int(args.max_test_rows) > 0:
+            raise ValueError("rich_af_gold streaming path does not support max_valid_rows/max_test_rows sampling.")
         assert split_plan is not None and split_infos is not None and split_summary_rows is not None
-        df_valid = _read_one_split_frame_streamed(
+        valid_pred, valid_targets, w_valid, valid_raw_by_head, valid_info, valid_summary_extra = _predict_split_streamed(
             path,
             spec,
+            dataset=dataset,
             feature_preset=args.feature_preset,
             plan=split_plan,
             split_name="valid",
             parquet_batch_size=int(args.parquet_batch_size),
+            schema=schema,
+            transformers=transformers,
+            trained_heads=trained_heads,
+            legacy=legacy,
+            predictor=predictor,
+            safe_label_min_step=int(args.safe_label_min_step),
         )
-        if df_valid.empty:
-            raise ValueError(f"{dataset}: empty split valid={len(df_valid)}")
-        split_infos["valid"] = _split_info(df_valid)
-        split_summary_rows.extend(_split_summary_rows(df_valid, dataset=dataset, split_name="valid", plan=split_plan))
-        df_valid = _sample_rows(df_valid, max_rows=int(args.max_valid_rows), seed=_stable_seed(cfg.seed, dataset, "valid_rows"))
-    y_success_valid, y_failure_valid = legacy["_safe_targets"](df_valid, args.safe_label_min_step)
-    w_valid = df_valid["sample_weight"].to_numpy(dtype=np.float32)
-    valid_pred = _prediction_frame(df_valid)
-    X_valid = _build_features(df_valid, schema, transformers)
-    del df_valid
-    gc.collect()
-    valid_outputs = {}
-    valid_targets = {
-        "safe_success": y_success_valid,
-        "safe_failure": y_failure_valid,
-    }
-    for head in trained_heads:
-        y_valid = valid_targets[str(head["head_name"])]
-        valid_raw = _positive_probability(head["model"], X_valid)
-        calibrator = legacy["fit_sigmoid_calibrator"](valid_raw, y_valid, sample_weight=w_valid)
-        valid_cal = calibrator.predict(valid_raw)
-        column_prefix = str(head["column_prefix"])
-        valid_pred[legacy["_head_column"](column_prefix, "raw", predictor)] = valid_raw.astype(np.float32)
-        valid_pred[legacy["_head_column"](column_prefix, "calibrated", predictor)] = valid_cal.astype(np.float32)
-        valid_outputs[str(head["head_name"])] = {
-            "calibrator": calibrator,
-            "y_valid": y_valid,
-            "valid_raw": valid_raw,
-        }
-    del X_valid, y_success_valid, y_failure_valid, w_valid
-    gc.collect()
+        split_infos["valid"] = valid_info
+        split_summary_rows.extend(valid_summary_extra)
+        for head in trained_heads:
+            head_name = str(head["head_name"])
+            column_prefix = str(head["column_prefix"])
+            y_valid = valid_targets[head_name]
+            valid_raw = valid_raw_by_head[head_name]
+            calibrator = legacy["fit_sigmoid_calibrator"](valid_raw, y_valid, sample_weight=w_valid)
+            valid_cal = calibrator.predict(valid_raw)
+            valid_pred[legacy["_head_column"](column_prefix, "calibrated", predictor)] = valid_cal.astype(np.float32)
+            valid_outputs[head_name] = {
+                "calibrator": calibrator,
+                "y_valid": y_valid,
+                "valid_raw": valid_raw,
+            }
+        del valid_targets, w_valid, valid_raw_by_head
+        _release_memory()
 
-    if args.feature_preset == "rich_af_gold":
-        assert split_plan is not None and split_infos is not None and split_summary_rows is not None
-        df_test = _read_one_split_frame_streamed(
+        test_pred, test_targets, _w_test, test_raw_by_head, test_info, test_summary_extra = _predict_split_streamed(
             path,
             spec,
+            dataset=dataset,
             feature_preset=args.feature_preset,
             plan=split_plan,
             split_name="test",
             parquet_batch_size=int(args.parquet_batch_size),
+            schema=schema,
+            transformers=transformers,
+            trained_heads=trained_heads,
+            legacy=legacy,
+            predictor=predictor,
+            safe_label_min_step=int(args.safe_label_min_step),
         )
-        if df_test.empty:
-            raise ValueError(f"{dataset}: empty split test={len(df_test)}")
-        split_infos["test"] = _split_info(df_test)
-        split_summary_rows.extend(_split_summary_rows(df_test, dataset=dataset, split_name="test", plan=split_plan))
+        split_infos["test"] = test_info
+        split_summary_rows.extend(test_summary_extra)
         split_meta = _split_metadata_from_infos(
             dataset=dataset,
             cfg=cfg,
@@ -1116,41 +1542,98 @@ def _run_dataset(
             smoke_trajectories_per_split=int(args.smoke_trajectories_per_split),
         )
         split_summary = pd.DataFrame(split_summary_rows)
-        df_test = _sample_rows(df_test, max_rows=int(args.max_test_rows), seed=_stable_seed(cfg.seed, dataset, "test_rows"))
-    y_success_test, y_failure_test = legacy["_safe_targets"](df_test, args.safe_label_min_step)
-    test_pred = _prediction_frame(df_test)
-    X_test = _build_features(df_test, schema, transformers)
-    del df_test
-    gc.collect()
-    test_targets = {
-        "safe_success": y_success_test,
-        "safe_failure": y_failure_test,
-    }
-    for head in trained_heads:
-        head_name = str(head["head_name"])
-        column_prefix = str(head["column_prefix"])
-        valid_output = valid_outputs[head_name]
-        y_test = test_targets[head_name]
-        test_raw = _positive_probability(head["model"], X_test)
-        test_cal = valid_output["calibrator"].predict(test_raw)
-        test_pred[legacy["_head_column"](column_prefix, "raw", predictor)] = test_raw.astype(np.float32)
-        test_pred[legacy["_head_column"](column_prefix, "calibrated", predictor)] = test_cal.astype(np.float32)
-        if models_dir is not None:
-            _save_model(models_dir / f"calibrator_{head['model_name']}.pkl", valid_output["calibrator"])
-        cal_rows.append(
-            {
-                "dataset": dataset,
-                "head": head_name,
-                **legacy["calibration_summary_row"](
-                    model_name=str(head["model_name"]),
-                    calibrator=valid_output["calibrator"],
-                    y_valid=valid_output["y_valid"],
-                    raw_prob_valid=valid_output["valid_raw"],
-                    y_test=y_test,
-                    raw_prob_test=test_raw,
-                ),
+        for head in trained_heads:
+            head_name = str(head["head_name"])
+            column_prefix = str(head["column_prefix"])
+            valid_output = valid_outputs[head_name]
+            y_test = test_targets[head_name]
+            test_raw = test_raw_by_head[head_name]
+            test_cal = valid_output["calibrator"].predict(test_raw)
+            test_pred[legacy["_head_column"](column_prefix, "calibrated", predictor)] = test_cal.astype(np.float32)
+            if models_dir is not None:
+                _save_model(models_dir / f"calibrator_{head['model_name']}.pkl", valid_output["calibrator"])
+            cal_rows.append(
+                {
+                    "dataset": dataset,
+                    "head": head_name,
+                    **legacy["calibration_summary_row"](
+                        model_name=str(head["model_name"]),
+                        calibrator=valid_output["calibrator"],
+                        y_valid=valid_output["y_valid"],
+                        raw_prob_valid=valid_output["valid_raw"],
+                        y_test=y_test,
+                        raw_prob_test=test_raw,
+                    ),
+                }
+            )
+        del test_targets, _w_test, test_raw_by_head
+        _release_memory()
+    else:
+        y_success_valid, y_failure_valid = legacy["_safe_targets"](df_valid, args.safe_label_min_step)
+        w_valid = df_valid["sample_weight"].to_numpy(dtype=np.float32)
+        valid_pred = _prediction_frame(df_valid)
+        X_valid = _build_features(df_valid, schema, transformers)
+        del df_valid
+        gc.collect()
+        valid_targets = {
+            "safe_success": y_success_valid,
+            "safe_failure": y_failure_valid,
+        }
+        for head in trained_heads:
+            y_valid = valid_targets[str(head["head_name"])]
+            valid_raw = _positive_probability(head["model"], X_valid)
+            calibrator = legacy["fit_sigmoid_calibrator"](valid_raw, y_valid, sample_weight=w_valid)
+            valid_cal = calibrator.predict(valid_raw)
+            column_prefix = str(head["column_prefix"])
+            valid_pred[legacy["_head_column"](column_prefix, "raw", predictor)] = valid_raw.astype(np.float32)
+            valid_pred[legacy["_head_column"](column_prefix, "calibrated", predictor)] = valid_cal.astype(np.float32)
+            valid_outputs[str(head["head_name"])] = {
+                "calibrator": calibrator,
+                "y_valid": y_valid,
+                "valid_raw": valid_raw,
             }
-        )
+        del X_valid, y_success_valid, y_failure_valid, w_valid
+        _release_memory()
+
+        y_success_test, y_failure_test = legacy["_safe_targets"](df_test, args.safe_label_min_step)
+        test_pred = _prediction_frame(df_test)
+        X_test = _build_features(df_test, schema, transformers)
+        del df_test
+        gc.collect()
+        test_targets = {
+            "safe_success": y_success_test,
+            "safe_failure": y_failure_test,
+        }
+        for head in trained_heads:
+            head_name = str(head["head_name"])
+            column_prefix = str(head["column_prefix"])
+            valid_output = valid_outputs[head_name]
+            y_test = test_targets[head_name]
+            test_raw = _positive_probability(head["model"], X_test)
+            test_cal = valid_output["calibrator"].predict(test_raw)
+            test_pred[legacy["_head_column"](column_prefix, "raw", predictor)] = test_raw.astype(np.float32)
+            test_pred[legacy["_head_column"](column_prefix, "calibrated", predictor)] = test_cal.astype(np.float32)
+            if models_dir is not None:
+                _save_model(models_dir / f"calibrator_{head['model_name']}.pkl", valid_output["calibrator"])
+            cal_rows.append(
+                {
+                    "dataset": dataset,
+                    "head": head_name,
+                    **legacy["calibration_summary_row"](
+                        model_name=str(head["model_name"]),
+                        calibrator=valid_output["calibrator"],
+                        y_valid=valid_output["y_valid"],
+                        raw_prob_valid=valid_output["valid_raw"],
+                        y_test=y_test,
+                        raw_prob_test=test_raw,
+                    ),
+                }
+            )
+        del X_test, y_success_test, y_failure_test, test_targets
+        _release_memory()
+
+    del trained_heads, valid_outputs, transformers
+    _release_memory()
 
     dataset_dir.mkdir(parents=True, exist_ok=True)
     valid_pred.to_parquet(dataset_dir / "valid_predictions_safe_stop.parquet", index=False)
@@ -1190,8 +1673,7 @@ def _run_dataset(
     legacy["_write_report"](dataset_dir, selected, test_selected)
     (dataset_dir / "_SUCCESS").write_text("robustness model-holdout completed\n", encoding="utf-8")
 
-    del X_test, y_success_test, y_failure_test, trained_heads, valid_outputs, transformers
-    gc.collect()
+    _release_memory()
     return {
         "dataset": dataset,
         "output_dir": str(dataset_dir),
