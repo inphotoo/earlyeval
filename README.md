@@ -160,6 +160,27 @@ python -m earlyeval.experiments.harness_debug_terminalbench_summary \
   --token-prefix-cache /path/to/terminalbench_model_tokenizer_source_split_prefix_tokens.parquet
 ```
 
+Run the TerminalBench 4x4 harness-debugging exclusion diagnostic. This uses
+four base models crossed with four agent slots, then evaluates both
+leave-model and leave-agent settings:
+
+```bash
+bash scripts/run_harness_debug_slot4x4_parallel8.sh
+```
+
+The two configs expect the prepared slot4x4 prefix table at the relative path
+listed in `configs/harness_debug_slot4x4_leave_model.yaml` and
+`configs/harness_debug_slot4x4_leave_agent.yaml`. After the folds complete,
+build the compact fixed-threshold, ranking, and tokenizer-savings summaries:
+
+```bash
+python -m earlyeval.experiments.harness_debug_slot4x4_summary \
+  --experiment-root paper/experiments/harness_debug_exclusion_20260626 \
+  --output-dir paper/experiments/harness_debug_exclusion_20260626/summary/slot4x4_compact \
+  --prefix-table /path/to/prefix_table_terminalbench_slot4x4.parquet \
+  --token-prefix-cache /path/to/terminalbench_model_tokenizer_source_split_prefix_tokens.parquet
+```
+
 Run the SWE-bench Verified held-out-agent feature and component ablations:
 
 ```bash

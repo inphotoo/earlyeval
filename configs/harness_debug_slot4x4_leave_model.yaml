@@ -1,0 +1,37 @@
+run:
+  name: "harness_debug_slot4x4_leave_model"
+  default_run_id: "harness_debug_slot4x4_leave_model"
+  output_root: "paper/experiments"
+  results_root: "paper/results"
+  seed: 42
+
+runtime:
+  python_executable: null
+
+resources:
+  execution: "serial"
+  max_cpu_threads: 1
+  lightgbm_num_threads: 1
+  low_memory_audit: true
+  write_success_markers: true
+
+datasets:
+  terminalbench_slot4x4:
+    role: "robustness"
+    prefix_table: "../data/harness_debug_exclusion_20260626/prefix_tables/prefix_table_terminalbench_slot4x4.parquet"
+    split_enabled: true
+    ablations_enabled: false
+    answer_features_available: false
+    model_col: "harness_model_group"
+    traj_col: "traj_id"
+    instance_col: "instance_id"
+    step_col: "prefix_step_idx"
+    label_col: "label"
+
+split:
+  strategy: "leave_one_model_known_task"
+  valid_ratio: 0.15
+  train_valid_filter:
+    allow_short_trajectory_filter: true
+    min_steps: 2
+    apply_to_test: false
