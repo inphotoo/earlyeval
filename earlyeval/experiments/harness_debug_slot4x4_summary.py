@@ -300,12 +300,23 @@ def _aggregate(per_unit: pd.DataFrame) -> pd.DataFrame:
         total = int(part["original_total"].sum())
         resolved = int(part["original_resolved"].sum())
         summary = _summarize(counts, total, resolved)
+        delta_resolve_pp = -float(summary["resolve_rate_drop"]) * 100.0
+        mean_abs_delta = float("nan")
+        weighted_mean_abs_delta = float("nan")
+        if "delta_resolve_pp" in part.columns:
+            abs_delta = part["delta_resolve_pp"].astype(float).abs()
+            mean_abs_delta = float(abs_delta.mean())
+            weights = part["original_total"].astype(float)
+            weighted_mean_abs_delta = float(np.average(abs_delta, weights=weights)) if float(weights.sum()) else float("nan")
         rows.append(
             {
                 "threshold": float(threshold),
                 "n_units": int(part["unit"].nunique()),
                 **summary,
-                "delta_resolve_pp": -float(summary["resolve_rate_drop"]) * 100.0,
+                "delta_resolve_pp": delta_resolve_pp,
+                "abs_delta_resolve_pp": abs(delta_resolve_pp),
+                "mean_abs_delta_resolve_pp": mean_abs_delta,
+                "weighted_mean_abs_delta_resolve_pp": weighted_mean_abs_delta,
                 "coverage_pct": float(summary["coverage"]) * 100.0,
                 "decision_accuracy_pct": float(summary["decision_accuracy"]) * 100.0,
                 "precision_success_pct": float(summary["precision_success"]) * 100.0,
@@ -468,6 +479,7 @@ def _build_per_pair(
                 raise ValueError(f"{fold_dir}: heldout mismatch {heldout_unit=} {expected_heldout=}")
             for threshold in thresholds:
                 summary = _evaluate_unit(pair, float(threshold), float(threshold), success_col, failure_col)
+                delta_resolve_pp = -float(summary["resolve_rate_drop"]) * 100.0
                 rows.append(
                     {
                         "setting": setting,
@@ -492,7 +504,8 @@ def _build_per_pair(
                         **summary,
                         "full_resolve_rate_pct": _pct(summary["original_resolve_rate"]),
                         "early_resolve_rate_pct": _pct(summary["adjusted_resolve_rate"]),
-                        "delta_resolve_pp": -float(summary["resolve_rate_drop"]) * 100.0,
+                        "delta_resolve_pp": delta_resolve_pp,
+                        "abs_delta_resolve_pp": abs(delta_resolve_pp),
                         "coverage_pct": _pct(summary["coverage"]),
                         "decision_accuracy_pct": _pct(summary["decision_accuracy"]),
                         "step_save_pct": float(summary["pct_steps_saved"]),
@@ -572,6 +585,7 @@ def _build_rankings(per_pair: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]
         "full_resolve_rate_pct",
         "early_resolve_rate_pct",
         "delta_resolve_pp",
+        "abs_delta_resolve_pp",
         "full_rank",
         "early_rank",
         "rank_shift_up_positive",
@@ -608,6 +622,7 @@ def _aggregate_entity_ranking(per_pair: pd.DataFrame) -> pd.DataFrame:
         total = int(part["original_total"].sum())
         resolved = int(part["original_resolved"].sum())
         summary = _summarize(counts, total, resolved)
+        delta_resolve_pp = -float(summary["resolve_rate_drop"]) * 100.0
         rows.append(
             {
                 "setting": setting,
@@ -618,7 +633,8 @@ def _aggregate_entity_ranking(per_pair: pd.DataFrame) -> pd.DataFrame:
                 "total_trajectories": total,
                 "full_weighted_resolve_rate_pct": _pct(summary["original_resolve_rate"]),
                 "early_weighted_resolve_rate_pct": _pct(summary["adjusted_resolve_rate"]),
-                "delta_resolve_pp": -float(summary["resolve_rate_drop"]) * 100.0,
+                "delta_resolve_pp": delta_resolve_pp,
+                "abs_delta_resolve_pp": abs(delta_resolve_pp),
                 "coverage_pct": _pct(summary["coverage"]),
                 "decision_accuracy_pct": _pct(summary["decision_accuracy"]),
                 "step_save_pct": float(summary["pct_steps_saved"]),
@@ -683,6 +699,7 @@ def _write_readme(
         "- `slot4x4_fixed_threshold_rankings.csv`: within-heldout ranking rows.",
         "- `slot4x4_fixed_threshold_ranking_summary.csv`: rank preservation summary per held-out group.",
         "- `slot4x4_fixed_threshold_entity_aggregate_ranking.csv`: aggregate agent-slot ranking for `leave_model` and aggregate model ranking for `leave_agent`.",
+        "- `abs_delta_resolve_pp` is the absolute value of signed `delta_resolve_pp`; global `mean_abs_delta_resolve_pp` averages this over model-agent pairs.",
         "",
         "## Global Metrics",
         "",
@@ -697,6 +714,9 @@ def _write_readme(
         "output_token_save_pct_est",
         "total_token_save_pct_est",
         "delta_resolve_pp",
+        "abs_delta_resolve_pp",
+        "mean_abs_delta_resolve_pp",
+        "weighted_mean_abs_delta_resolve_pp",
     ]
     present = [col for col in display_cols if col in global_summary.columns]
     lines.append(global_summary[present].to_markdown(index=False))
