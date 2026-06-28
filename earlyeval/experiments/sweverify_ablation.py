@@ -66,11 +66,36 @@ PROFILE_SPECS: dict[str, dict[str, Any]] = {
         "lgbm_preset": "strong_reg",
         "mask_train_model_id": True,
     },
+    "paper_feature_table": {
+        "description": (
+            "Paper feature-table ablation over the main Dense+AF base: remove one "
+            "feature family or one table feature group while keeping the locked main "
+            "operating point."
+        ),
+        "variants": [
+            "i",
+            "drop_family_behavioral",
+            "drop_family_textual",
+            "drop_family_reference",
+            "drop_group_activity_counts",
+            "drop_group_last_step",
+            "drop_group_event_timing",
+            "drop_group_working_pattern",
+            "drop_group_error_test_status",
+            "drop_group_task_prompt",
+            "drop_group_action_text",
+            "drop_group_feedback_text",
+            "drop_group_gold_descriptors",
+            "drop_group_prefix_gold_overlap",
+        ],
+        "lgbm_preset": "strong_reg",
+        "mask_train_model_id": True,
+    },
 }
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run paper SWEVerify LightGBM ablations.")
+    parser = argparse.ArgumentParser(description="Run final RQ SWEVerify LightGBM ablations.")
     parser.add_argument("--config", type=Path, default=Path("configs/earlyeval.yaml"))
     parser.add_argument("--output-dir", type=Path, default=None)
     parser.add_argument("--run-subdir", default="sweverify_lightgbm_ablation")
@@ -168,13 +193,15 @@ def _ablation_command(
     spec = PROFILE_SPECS[profile]
     threads = int(args.threads or resources.get("lightgbm_num_threads", resources.get("max_cpu_threads", 8)))
     excluded_train_models = sorted(_excluded_models_from_config(cfg) - {test_model})
+    prefix_table_path = _resolve_project_path(dataset["prefix_table"])
+    fit_on_train = bool(getattr(args, "fit_feature_engineer_on_train", False)) or _fit_feature_engineer_on_train(cfg)
     command = [
         str(_python_executable(cfg)),
         str(_legacy_trainer_path(cfg)),
         "--run-name",
         str(main.get("run_name", "model_holdout_answer_calibrated_full")),
         "--prefix-table",
-        str(_resolve_project_path(dataset["prefix_table"])),
+        str(prefix_table_path),
         "--verified-jsonl",
         str(_resolve_project_path(dataset["verified_jsonl"])),
         "--feature-engineer-path",
@@ -218,11 +245,13 @@ def _ablation_command(
         command.append("--low-memory")
     if bool(spec["mask_train_model_id"]):
         command.append("--mask-train-model-id")
+    if profile == "paper_feature_table" and bool(spec["mask_train_model_id"]) and not fit_on_train:
+        cache_dir = prefix_table_path.parent / "global_row_matrix_cache_dense_af_masked_model_id"
+        command.extend(["--global-row-matrix-cache-dir", str(cache_dir)])
     if excluded_train_models:
         command.append("--exclude-train-models")
         command.extend(excluded_train_models)
     # Per-fold fit-on-train is opt-in; default is the shared pkl path.
-    fit_on_train = bool(getattr(args, "fit_feature_engineer_on_train", False)) or _fit_feature_engineer_on_train(cfg)
     if fit_on_train:
         command.append("--fit-feature-engineer-on-train")
         ablation_run_dir = fold_output_dir.parent.parent.parent
@@ -368,7 +397,7 @@ def _summarize(run_dir: Path) -> dict[str, Any]:
                 }
             )
     lines = [
-        "# SWEVerify LightGBM Ablation",
+        "# SWE-bench Verified LightGBM Ablation",
         "",
         f"- run_dir: `{run_dir}`",
         f"- completed selected rows: `{len(test)}`",

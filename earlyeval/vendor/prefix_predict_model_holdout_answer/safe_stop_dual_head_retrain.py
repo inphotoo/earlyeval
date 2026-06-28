@@ -62,6 +62,8 @@ from model_holdout_shadow_valid_retrain import (
     _selected_specs,
     _set_cpu_thread_limits,
     _transform_tfidf_subset_streaming,
+    build_or_load_global_row_matrix_cache,
+    slice_global_row_matrix_cache,
 )
 from probability_calibration import calibration_summary_row, fit_sigmoid_calibrator
 from trainer import save_model
@@ -195,6 +197,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eager-load-text-columns", action="store_true")
     parser.add_argument("--text-batch-size", type=int, default=4096)
     parser.add_argument(
+        "--global-row-matrix-cache-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Optional shared row-level Dense/AF matrix cache keyed by prefix_id. "
+            "This is intended for the main masked-model-id setting so multiple "
+            "holdout folds can reuse one TF-IDF transform pass."
+        ),
+    )
+    parser.add_argument(
         "--max-cpu-threads",
         type=int,
         default=int(os.environ.get("SWE_MAX_CPU_THREADS", "24")),
@@ -227,62 +239,86 @@ def _build_matrices(
     needs_thought: bool,
     eager_load_text_columns: bool,
     text_batch_size: int,
+    global_row_matrix_cache_dir: Path | None,
+    required_columns: list[str],
+    mask_model_id_inputs: bool,
 ) -> tuple[dict[str, sparse.csr_matrix], list[str], list[str]]:
     tfidf_af_cols = list(TFIDF_ACTION_FEEDBACK.keys())
     tfidf_thought_cols = list(TFIDF_THOUGHT.keys())
     tfidf_af_thought_cols = tfidf_af_cols + tfidf_thought_cols
-    with timer(LOGGER, "Build Dense / AF / Thought matrices"):
-        X_train_dense = sparse.csr_matrix(feature_engineer.transform_dense(df_train))
-        X_valid_dense = sparse.csr_matrix(feature_engineer.transform_dense(df_valid))
-        X_test_dense = sparse.csr_matrix(feature_engineer.transform_dense(df_test))
-        if eager_load_text_columns:
-            X_train_af = feature_engineer.transform_tfidf_subset(df_train, tfidf_af_cols)
-            X_valid_af = feature_engineer.transform_tfidf_subset(df_valid, tfidf_af_cols)
-            X_test_af = feature_engineer.transform_tfidf_subset(df_test, tfidf_af_cols)
-            if needs_thought:
-                X_train_thought = feature_engineer.transform_tfidf_subset(df_train, tfidf_thought_cols)
-                X_valid_thought = feature_engineer.transform_tfidf_subset(df_valid, tfidf_thought_cols)
-                X_test_thought = feature_engineer.transform_tfidf_subset(df_test, tfidf_thought_cols)
-            else:
-                X_train_thought = sparse.csr_matrix((len(df_train), 0))
-                X_valid_thought = sparse.csr_matrix((len(df_valid), 0))
-                X_test_thought = sparse.csr_matrix((len(df_test), 0))
-        else:
-            X_train_af, X_valid_af, X_test_af = _transform_tfidf_subset_streaming(
+    if global_row_matrix_cache_dir is not None:
+        with timer(LOGGER, "Load/slice global Dense / AF / Thought row cache"):
+            cache = build_or_load_global_row_matrix_cache(
+                cache_dir=global_row_matrix_cache_dir,
                 prefix_table_path=prefix_path,
                 feature_engineer=feature_engineer,
+                required_columns=required_columns,
+                include_thought=needs_thought,
+                text_batch_size=text_batch_size,
+                mask_model_id_inputs=mask_model_id_inputs,
+            )
+            matrices = slice_global_row_matrix_cache(
+                cache=cache,
                 df_train=df_train,
                 df_valid=df_valid,
                 df_test=df_test,
-                column_names=tfidf_af_cols,
-                batch_size=text_batch_size,
+                include_thought=needs_thought,
             )
-            if needs_thought:
-                X_train_thought, X_valid_thought, X_test_thought = _transform_tfidf_subset_streaming(
+            del cache
+            gc.collect()
+    else:
+        with timer(LOGGER, "Build Dense / AF / Thought matrices"):
+            X_train_dense = sparse.csr_matrix(feature_engineer.transform_dense(df_train))
+            X_valid_dense = sparse.csr_matrix(feature_engineer.transform_dense(df_valid))
+            X_test_dense = sparse.csr_matrix(feature_engineer.transform_dense(df_test))
+            if eager_load_text_columns:
+                X_train_af = feature_engineer.transform_tfidf_subset(df_train, tfidf_af_cols)
+                X_valid_af = feature_engineer.transform_tfidf_subset(df_valid, tfidf_af_cols)
+                X_test_af = feature_engineer.transform_tfidf_subset(df_test, tfidf_af_cols)
+                if needs_thought:
+                    X_train_thought = feature_engineer.transform_tfidf_subset(df_train, tfidf_thought_cols)
+                    X_valid_thought = feature_engineer.transform_tfidf_subset(df_valid, tfidf_thought_cols)
+                    X_test_thought = feature_engineer.transform_tfidf_subset(df_test, tfidf_thought_cols)
+                else:
+                    X_train_thought = sparse.csr_matrix((len(df_train), 0))
+                    X_valid_thought = sparse.csr_matrix((len(df_valid), 0))
+                    X_test_thought = sparse.csr_matrix((len(df_test), 0))
+            else:
+                X_train_af, X_valid_af, X_test_af = _transform_tfidf_subset_streaming(
                     prefix_table_path=prefix_path,
                     feature_engineer=feature_engineer,
                     df_train=df_train,
                     df_valid=df_valid,
                     df_test=df_test,
-                    column_names=tfidf_thought_cols,
+                    column_names=tfidf_af_cols,
                     batch_size=text_batch_size,
                 )
-            else:
-                X_train_thought = sparse.csr_matrix((len(df_train), 0))
-                X_valid_thought = sparse.csr_matrix((len(df_valid), 0))
-                X_test_thought = sparse.csr_matrix((len(df_test), 0))
+                if needs_thought:
+                    X_train_thought, X_valid_thought, X_test_thought = _transform_tfidf_subset_streaming(
+                        prefix_table_path=prefix_path,
+                        feature_engineer=feature_engineer,
+                        df_train=df_train,
+                        df_valid=df_valid,
+                        df_test=df_test,
+                        column_names=tfidf_thought_cols,
+                        batch_size=text_batch_size,
+                    )
+                else:
+                    X_train_thought = sparse.csr_matrix((len(df_train), 0))
+                    X_valid_thought = sparse.csr_matrix((len(df_valid), 0))
+                    X_test_thought = sparse.csr_matrix((len(df_test), 0))
 
-    matrices = {
-        "train_dense": X_train_dense,
-        "valid_dense": X_valid_dense,
-        "test_dense": X_test_dense,
-        "train_af": X_train_af,
-        "valid_af": X_valid_af,
-        "test_af": X_test_af,
-        "train_thought": X_train_thought,
-        "valid_thought": X_valid_thought,
-        "test_thought": X_test_thought,
-    }
+        matrices = {
+            "train_dense": X_train_dense,
+            "valid_dense": X_valid_dense,
+            "test_dense": X_test_dense,
+            "train_af": X_train_af,
+            "valid_af": X_valid_af,
+            "test_af": X_test_af,
+            "train_thought": X_train_thought,
+            "valid_thought": X_valid_thought,
+            "test_thought": X_test_thought,
+        }
     names_af = (
         list(feature_engineer.dense_feature_names)
         + feature_engineer.get_tfidf_feature_names_for_columns(tfidf_af_cols)
@@ -305,7 +341,16 @@ def _matrices_for_spec(
         X_train = sparse.hstack([matrices["train_dense"], matrices["train_af"]], format="csr")
         X_valid = sparse.hstack([matrices["valid_dense"], matrices["valid_af"]], format="csr")
         X_test = sparse.hstack([matrices["test_dense"], matrices["test_af"]], format="csr")
-        return X_train, X_valid, X_test, list(names_af), []
+        feature_names = list(names_af)
+        removed_names: list[str] = []
+        remove_fn = spec.get("remove_fn")
+        if remove_fn is not None:
+            keep_cols, removed_names = _make_column_mask(feature_names, remove_fn)
+            X_train = X_train[:, keep_cols].tocsr()
+            X_valid = X_valid[:, keep_cols].tocsr()
+            X_test = X_test[:, keep_cols].tocsr()
+            feature_names = [feature_names[idx] for idx in keep_cols]
+        return X_train, X_valid, X_test, feature_names, removed_names
 
     if spec["base"] != "af_thought":
         raise ValueError(f"Unknown base matrix: {spec['base']}")
@@ -771,6 +816,12 @@ def main() -> int:
     specs = _selected_specs(args.variants)
     predictors = [spec["predictor"] for spec in specs]
     needs_thought = any(spec["base"] == "af_thought" for spec in specs)
+    if args.global_row_matrix_cache_dir is not None:
+        if fit_feature_engineer_on_train:
+            raise ValueError("--global-row-matrix-cache-dir cannot be used with --fit-feature-engineer-on-train.")
+        if not args.mask_train_model_id:
+            raise ValueError("--global-row-matrix-cache-dir requires --mask-train-model-id for exact feature parity.")
+        LOGGER.info("Global row matrix cache enabled: %s", args.global_row_matrix_cache_dir)
 
     with _ram_peak_lock(args.ram_peak_lock_path):
         with timer(LOGGER, "Load cached prefix table and build split"):
@@ -808,6 +859,7 @@ def main() -> int:
             split_meta["lgbm_preset_updates"] = preset_updates
             split_meta["lgbm_params_used"] = dict(config.LGBM_PARAMS)
             split_meta["excluded_train_models"] = excluded_train_models
+            split_meta["global_row_matrix_cache_dir"] = str(args.global_row_matrix_cache_dir) if args.global_row_matrix_cache_dir else ""
             del prefix_df
             gc.collect()
 
@@ -874,6 +926,9 @@ def main() -> int:
         needs_thought=needs_thought,
         eager_load_text_columns=args.eager_load_text_columns,
         text_batch_size=args.text_batch_size,
+        global_row_matrix_cache_dir=args.global_row_matrix_cache_dir,
+        required_columns=required_columns,
+        mask_model_id_inputs=bool(args.mask_train_model_id),
     )
 
     valid_pred = _prediction_frame(df_valid)

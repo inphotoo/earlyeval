@@ -196,6 +196,11 @@ PROFILES=component_with_model_id \
 TEST_MODELS="$(earlyeval_sweverify_holdout_models_string)" \
 bash scripts/run_earlyeval_08_ablation_execute.sh
 
+RUN_SUBDIR=sweverify_ablation_paper_feature_table \
+PROFILES=paper_feature_table \
+TEST_MODELS="$(earlyeval_sweverify_holdout_models_string)" \
+bash scripts/run_earlyeval_08_ablation_execute.sh
+
 bash scripts/run_earlyeval_08_ablation_default_reg_sweverify.sh
 bash scripts/run_earlyeval_08_ablation_fine_grained_sweverify.sh
 ```
@@ -236,7 +241,7 @@ source files are:
 - `earlyeval/vendor/prefix_predict_model_holdout_answer/model_holdout_shadow_valid_retrain.py`:
   leave-one-model training/evaluation backbone used by the SWE folds.
 - `earlyeval/experiments/paper_pipeline.py`: SWE-bench Verified LightGBM orchestration.
-- `earlyeval/experiments/sweverify_ablation.py`: SWE-bench Verified ablation orchestration.
+- `earlyeval/experiments/sweverify_ablation.py`: SWE-bench Verified ablation orchestration, including the `paper_feature_table` profile for the three-family and per-group RQ3 ablation.
 - `earlyeval/experiments/lr_tfidf_baselines.py`: LR/TF-IDF comparison features.
 - `earlyeval/vendor/architecture_baselines/train_direct_dual_head_mlp.py`:
   direct MLP baseline over the shared feature representation.
@@ -244,4 +249,4 @@ source files are:
   baseline feature and fine-tuning code.
 
 For the main run, concrete `model_id` identity is masked from training
-features unless a component ablation explicitly enables it.
+features unless a component ablation explicitly enables it. The `paper_feature_table` profile automatically enables a row-level Dense+AF matrix cache when model-id inputs are masked; each ablation still removes columns after loading the cache and before training.

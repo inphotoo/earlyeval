@@ -18,6 +18,8 @@ explicitly requested with ``--split-strategy all_non_test_shadow_valid``.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import fcntl
 import gc
 import json
 import math
@@ -689,6 +691,186 @@ def _is_thought_tfidf_feature(feature_name: str) -> bool:
     return feature_name.startswith("tfidf_prefix_thought__") or feature_name.startswith("tfidf_last_thought__")
 
 
+_ACTIVITY_COUNT_FEATURES = {
+    "prefix_step_idx",
+    "steps_observed_so_far",
+    "actions_so_far",
+    "observations_so_far",
+    "tool_messages_so_far",
+    "tool_calls_so_far",
+    "distinct_tools_so_far",
+    "prefix_action_chars",
+    "prefix_feedback_chars",
+    "task_prompt_chars",
+    "read_view_so_far",
+    "read_search_so_far",
+    "edit_create_so_far",
+    "edit_replace_so_far",
+    "edit_insert_so_far",
+    "edit_undo_so_far",
+    "edits_so_far",
+    "tests_so_far",
+    "run_python_so_far",
+    "run_cli_so_far",
+    "git_ops_so_far",
+    "cleanup_so_far",
+    "submit_so_far",
+    "bash_calls_so_far",
+    "editor_calls_so_far",
+    "has_any_action",
+}
+
+_LAST_STEP_FEATURES = {
+    "last_step_tool_count",
+    "last_step_action_chars",
+    "last_step_feedback_chars",
+    "last_step_has_tool_output",
+    "last_step_has_observation",
+    "last_step_tool_error_seen",
+    "last_step_traceback_seen",
+    "last_step_test_fail_seen",
+    "last_step_test_pass_seen",
+}
+
+_EVENT_TIMING_FEATURES = {
+    "first_edit_step",
+    "first_test_step",
+    "first_run_python_step",
+    "first_submit_step",
+    "first_error_step",
+    "first_traceback_step",
+    "first_read_step",
+    "first_edit_seen",
+    "first_test_seen",
+    "first_submit_seen",
+    "first_error_seen",
+    "first_traceback_seen",
+    "steps_since_last_edit",
+    "steps_since_last_test",
+    "steps_since_last_submit",
+    "steps_since_last_error",
+    "steps_since_last_traceback",
+    "steps_since_last_read",
+}
+
+_WORKING_PATTERN_FEATURES = {
+    "read_to_edit_ratio",
+    "edit_to_test_ratio",
+    "bash_to_editor_ratio",
+    "error_per_action_ratio",
+    "submit_per_action_ratio",
+    "feedback_chars_per_action",
+    "action_chars_per_step",
+    "distinct_tools_per_step",
+    "long_no_edit_streak",
+    "long_read_streak",
+    "thought_steps_so_far",
+    "thought_density",
+    "prefix_thought_chars",
+    "avg_thought_chars_per_step",
+    "last_thought_chars",
+    "assistant_content_steps_so_far",
+    "prefix_assistant_content_chars",
+    "avg_assistant_content_chars_per_step",
+    "last_assistant_content_chars",
+    "thought_equals_content_rate",
+    "thought_action_overlap_avg",
+    "content_action_overlap_avg",
+    "repeated_same_action_consecutive",
+    "repeated_same_search_consecutive",
+    "repeated_same_view_consecutive",
+    "looping_read_seen",
+    "edit_failed_seen",
+    "submit_without_test_seen",
+    "premature_submit_seen",
+    "multi_submit_seen",
+    "submit_then_edit_again_seen",
+    "test_after_submit_seen",
+}
+
+_ERROR_TEST_STATUS_FEATURES = {
+    "last_fail_count",
+    "best_fail_count_so_far",
+    "fail_count_delta_from_prev_test",
+    "traceback_seen",
+    "tool_error_seen",
+    "assertion_error_seen",
+    "type_error_seen",
+    "value_error_seen",
+    "syntax_error_seen",
+    "import_error_seen",
+    "file_not_found_seen",
+    "timeout_seen",
+    "permission_error_seen",
+    "test_fail_seen",
+    "test_pass_seen",
+    "all_tests_passed_seen",
+    "test_improving_seen",
+}
+
+
+def _is_activity_count_feature(feature_name: str) -> bool:
+    return feature_name in _ACTIVITY_COUNT_FEATURES
+
+
+def _is_last_step_feature(feature_name: str) -> bool:
+    return feature_name in _LAST_STEP_FEATURES or feature_name.startswith(
+        "last_step_action_major_type__"
+    ) or feature_name.startswith("last_step_action_primary_subtype__")
+
+
+def _is_event_timing_feature(feature_name: str) -> bool:
+    return feature_name in _EVENT_TIMING_FEATURES
+
+
+def _is_working_pattern_feature(feature_name: str) -> bool:
+    return feature_name in _WORKING_PATTERN_FEATURES
+
+
+def _is_error_test_status_feature(feature_name: str) -> bool:
+    return feature_name in _ERROR_TEST_STATUS_FEATURES
+
+
+def _is_behavioral_family_feature(feature_name: str) -> bool:
+    return (
+        _is_activity_count_feature(feature_name)
+        or _is_last_step_feature(feature_name)
+        or _is_event_timing_feature(feature_name)
+        or _is_working_pattern_feature(feature_name)
+        or _is_error_test_status_feature(feature_name)
+    )
+
+
+def _is_textual_family_feature(feature_name: str) -> bool:
+    return (
+        _is_task_tfidf_feature(feature_name)
+        or _is_action_tfidf_feature(feature_name)
+        or _is_feedback_tfidf_feature(feature_name)
+    )
+
+
+def _is_reference_family_feature(feature_name: str) -> bool:
+    return _is_gold_answer_feature(feature_name)
+
+
+def _is_prefix_gold_overlap_feature(feature_name: str) -> bool:
+    if not feature_name.startswith("gold_"):
+        return False
+    overlap_scopes = (
+        "gold_prefix_action_",
+        "gold_prefix_feedback_",
+        "gold_prefix_thought_",
+        "gold_last_action_",
+        "gold_last_feedback_",
+        "gold_last_thought_",
+    )
+    return feature_name.startswith(overlap_scopes)
+
+
+def _is_gold_descriptor_feature(feature_name: str) -> bool:
+    return _is_gold_answer_feature(feature_name) and not _is_prefix_gold_overlap_feature(feature_name)
+
+
 def _make_column_mask(
     feature_names: list[str],
     should_remove: Callable[[str], bool],
@@ -723,6 +905,19 @@ def _selected_specs(requested: list[str]) -> list[dict[str, Any]]:
         "no_action": "no_action",
         "no_thought": "no_thought",
         "process_only": "process_only",
+        "drop_family_behavioral": "drop_family_behavioral",
+        "drop_family_textual": "drop_family_textual",
+        "drop_family_reference": "drop_family_reference",
+        "drop_group_activity_counts": "drop_group_activity_counts",
+        "drop_group_last_step": "drop_group_last_step",
+        "drop_group_event_timing": "drop_group_event_timing",
+        "drop_group_working_pattern": "drop_group_working_pattern",
+        "drop_group_error_test_status": "drop_group_error_test_status",
+        "drop_group_task_prompt": "drop_group_task_prompt",
+        "drop_group_action_text": "drop_group_action_text",
+        "drop_group_feedback_text": "drop_group_feedback_text",
+        "drop_group_gold_descriptors": "drop_group_gold_descriptors",
+        "drop_group_prefix_gold_overlap": "drop_group_prefix_gold_overlap",
     }
     specs = {
         "I": {
@@ -791,6 +986,84 @@ def _selected_specs(requested: list[str]) -> list[dict[str, Any]]:
                 or name.startswith("model_id__")
                 or _is_gold_answer_feature(name)
             ),
+        },
+        "drop_family_behavioral": {
+            "predictor": "Tbl_NoBehavioralFamily_LightGBM",
+            "base": "af",
+            "description": "Main Dense+AF base; remove all behavioral feature-table groups",
+            "remove_fn": _is_behavioral_family_feature,
+        },
+        "drop_family_textual": {
+            "predictor": "Tbl_NoTextualFamily_LightGBM",
+            "base": "af",
+            "description": "Main Dense+AF base; remove task, action, and feedback TF-IDF/SVD blocks",
+            "remove_fn": _is_textual_family_feature,
+        },
+        "drop_family_reference": {
+            "predictor": "Tbl_NoReferenceFamily_LightGBM",
+            "base": "af",
+            "description": "Main Dense+AF base; remove all structured reference-solution features",
+            "remove_fn": _is_reference_family_feature,
+        },
+        "drop_group_activity_counts": {
+            "predictor": "Tbl_NoActivityCounts_LightGBM",
+            "base": "af",
+            "description": "Main Dense+AF base; remove activity-count features",
+            "remove_fn": _is_activity_count_feature,
+        },
+        "drop_group_last_step": {
+            "predictor": "Tbl_NoLastStep_LightGBM",
+            "base": "af",
+            "description": "Main Dense+AF base; remove last-step features",
+            "remove_fn": _is_last_step_feature,
+        },
+        "drop_group_event_timing": {
+            "predictor": "Tbl_NoEventTiming_LightGBM",
+            "base": "af",
+            "description": "Main Dense+AF base; remove event-timing features",
+            "remove_fn": _is_event_timing_feature,
+        },
+        "drop_group_working_pattern": {
+            "predictor": "Tbl_NoWorkingPattern_LightGBM",
+            "base": "af",
+            "description": "Main Dense+AF base; remove working-pattern features",
+            "remove_fn": _is_working_pattern_feature,
+        },
+        "drop_group_error_test_status": {
+            "predictor": "Tbl_NoErrorTestStatus_LightGBM",
+            "base": "af",
+            "description": "Main Dense+AF base; remove error and test-status features",
+            "remove_fn": _is_error_test_status_feature,
+        },
+        "drop_group_task_prompt": {
+            "predictor": "Tbl_NoTaskPrompt_LightGBM",
+            "base": "af",
+            "description": "Main Dense+AF base; remove task-prompt TF-IDF/SVD block",
+            "remove_fn": _is_task_tfidf_feature,
+        },
+        "drop_group_action_text": {
+            "predictor": "Tbl_NoActionText_LightGBM",
+            "base": "af",
+            "description": "Main Dense+AF base; remove prefix-action and last-action TF-IDF/SVD blocks",
+            "remove_fn": _is_action_tfidf_feature,
+        },
+        "drop_group_feedback_text": {
+            "predictor": "Tbl_NoFeedbackText_LightGBM",
+            "base": "af",
+            "description": "Main Dense+AF base; remove prefix-feedback and last-feedback TF-IDF/SVD blocks",
+            "remove_fn": _is_feedback_tfidf_feature,
+        },
+        "drop_group_gold_descriptors": {
+            "predictor": "Tbl_NoGoldDescriptors_LightGBM",
+            "base": "af",
+            "description": "Main Dense+AF base; remove reference-solution descriptor features",
+            "remove_fn": _is_gold_descriptor_feature,
+        },
+        "drop_group_prefix_gold_overlap": {
+            "predictor": "Tbl_NoPrefixGoldOverlap_LightGBM",
+            "base": "af",
+            "description": "Main Dense+AF base; remove prefix-reference overlap and hit features",
+            "remove_fn": _is_prefix_gold_overlap_feature,
         },
     }
     raw = [str(item).strip().lower() for item in requested if str(item).strip()]
@@ -1181,6 +1454,254 @@ def _load_matrix_cache(cache_dir: Path) -> dict[str, sparse.csr_matrix]:
     }
 
 
+GLOBAL_ROW_MATRIX_CACHE_FILENAMES = {
+    "prefix_ids": "prefix_ids.npy",
+    "X_dense": "X_dense.npz",
+    "X_af": "X_af.npz",
+    "X_thought": "X_thought.npz",
+}
+
+
+@contextlib.contextmanager
+def _file_lock(path: Path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def _save_numpy_atomic(array: np.ndarray, path: Path) -> None:
+    array = np.asarray(array)
+    if array.dtype == object:
+        array = array.astype(str)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with tmp_path.open("wb") as handle:
+        np.save(handle, array, allow_pickle=False)
+    tmp_path.replace(path)
+
+
+def _global_row_matrix_cache_complete(cache_dir: Path, *, include_thought: bool) -> bool:
+    required = [
+        "metadata.json",
+        GLOBAL_ROW_MATRIX_CACHE_FILENAMES["prefix_ids"],
+        GLOBAL_ROW_MATRIX_CACHE_FILENAMES["X_dense"],
+        GLOBAL_ROW_MATRIX_CACHE_FILENAMES["X_af"],
+    ]
+    if include_thought:
+        required.append(GLOBAL_ROW_MATRIX_CACHE_FILENAMES["X_thought"])
+    return all((cache_dir / filename).is_file() for filename in required)
+
+
+def _masked_model_id_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    masked = frame.copy()
+    if "model_id" in masked.columns:
+        masked["model_id"] = "__MISSING__"
+    if "model" in masked.columns:
+        masked["model"] = "__MISSING__"
+    return masked
+
+
+def _transform_tfidf_rows_streaming(
+    *,
+    prefix_table_path: Path,
+    feature_engineer: FeatureEngineer,
+    row_frame: pd.DataFrame,
+    column_names: list[str],
+    batch_size: int,
+) -> sparse.csr_matrix:
+    import pyarrow.parquet as parquet
+
+    if row_frame["prefix_id"].astype(str).duplicated().any():
+        raise RuntimeError("prefix_id must be unique for global row matrix cache.")
+    positions = pd.Series(
+        np.arange(len(row_frame), dtype=np.int64),
+        index=row_frame["prefix_id"].astype(str),
+    )
+    parts: list[sparse.spmatrix] = []
+
+    for name in column_names:
+        if name not in feature_engineer.tfidf_vectorizers:
+            continue
+        text_column = feature_engineer.active_text_columns[name]
+        LOGGER.info("Streaming global TF-IDF block %s from column %s", name, text_column)
+        vectorizer = feature_engineer.tfidf_vectorizers[name]
+        reducer = feature_engineer.tfidf_reducers.get(name)
+        parquet_file = parquet.ParquetFile(prefix_table_path)
+        chunk_rows: list[np.ndarray] = []
+        chunk_matrices: list[sparse.spmatrix] = []
+
+        for batch in parquet_file.iter_batches(
+            batch_size=batch_size,
+            columns=["prefix_id", text_column],
+        ):
+            batch_df = batch.to_pandas()
+            batch_prefix_ids = batch_df["prefix_id"].astype(str)
+            output_rows = positions.reindex(batch_prefix_ids).to_numpy()
+            keep_mask = ~pd.isna(output_rows)
+            if not keep_mask.any():
+                del batch_df
+                continue
+            texts = batch_df.loc[keep_mask, text_column].fillna("")
+            X_tfidf = vectorizer.transform(texts)
+            del texts
+            if reducer is not None:
+                X_tfidf = sparse.csr_matrix(reducer.transform(X_tfidf).astype(np.float32))
+            else:
+                X_tfidf = X_tfidf.tocsr()
+            chunk_rows.append(output_rows[keep_mask].astype(np.int64))
+            chunk_matrices.append(X_tfidf)
+            del batch_df
+
+        if not chunk_matrices:
+            raise RuntimeError(f"No rows matched global TF-IDF block {name}.")
+        rows = np.concatenate(chunk_rows)
+        matrix = sparse.vstack(chunk_matrices, format="csr")
+        order = np.argsort(rows)
+        rows = rows[order]
+        matrix = matrix[order]
+        expected = np.arange(len(row_frame), dtype=np.int64)
+        if len(rows) != len(row_frame) or not np.array_equal(rows, expected):
+            raise RuntimeError(
+                f"Global TF-IDF row alignment failed for block={name}: "
+                f"matched={len(rows)} expected={len(row_frame)}"
+            )
+        parts.append(matrix)
+        del parquet_file, chunk_rows, chunk_matrices, rows, matrix
+        gc.collect()
+
+    if not parts:
+        return sparse.csr_matrix((len(row_frame), 0))
+    return sparse.hstack(parts, format="csr")
+
+
+def build_or_load_global_row_matrix_cache(
+    *,
+    cache_dir: Path,
+    prefix_table_path: Path,
+    feature_engineer: FeatureEngineer,
+    required_columns: list[str],
+    include_thought: bool,
+    text_batch_size: int,
+    mask_model_id_inputs: bool,
+) -> dict[str, Any]:
+    if not mask_model_id_inputs:
+        raise ValueError(
+            "Global row matrix cache currently requires masked model_id inputs; "
+            "use --mask-train-model-id to match the main setting."
+        )
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = cache_dir / "build.lock"
+    with _file_lock(lock_path):
+        if not _global_row_matrix_cache_complete(cache_dir, include_thought=include_thought):
+            LOGGER.info("Building global row matrix cache under %s", cache_dir)
+            row_df = _load_prefix_table(prefix_table_path, required_columns)
+            row_df = row_df.reset_index(drop=True)
+            prefix_ids = row_df["prefix_id"].astype(str).to_numpy()
+            if len(prefix_ids) != len(set(prefix_ids.tolist())):
+                raise RuntimeError("prefix_id must be unique in the prefix table.")
+
+            dense_df = _masked_model_id_frame(row_df) if mask_model_id_inputs else row_df
+            X_dense = sparse.csr_matrix(feature_engineer.transform_dense(dense_df))
+            X_af = _transform_tfidf_rows_streaming(
+                prefix_table_path=prefix_table_path,
+                feature_engineer=feature_engineer,
+                row_frame=row_df[["prefix_id"]],
+                column_names=list(TFIDF_ACTION_FEEDBACK.keys()),
+                batch_size=text_batch_size,
+            )
+            if include_thought:
+                X_thought = _transform_tfidf_rows_streaming(
+                    prefix_table_path=prefix_table_path,
+                    feature_engineer=feature_engineer,
+                    row_frame=row_df[["prefix_id"]],
+                    column_names=list(TFIDF_THOUGHT.keys()),
+                    batch_size=text_batch_size,
+                )
+            else:
+                X_thought = None
+
+            _save_numpy_atomic(prefix_ids, cache_dir / GLOBAL_ROW_MATRIX_CACHE_FILENAMES["prefix_ids"])
+            _save_sparse_atomic(X_dense, cache_dir / GLOBAL_ROW_MATRIX_CACHE_FILENAMES["X_dense"])
+            _save_sparse_atomic(X_af, cache_dir / GLOBAL_ROW_MATRIX_CACHE_FILENAMES["X_af"])
+            if include_thought and X_thought is not None:
+                _save_sparse_atomic(X_thought, cache_dir / GLOBAL_ROW_MATRIX_CACHE_FILENAMES["X_thought"])
+            metadata = {
+                "prefix_table_path": str(prefix_table_path),
+                "rows": int(len(prefix_ids)),
+                "dense_shape": list(X_dense.shape),
+                "af_shape": list(X_af.shape),
+                "thought_shape": list(X_thought.shape) if X_thought is not None else [int(len(prefix_ids)), 0],
+                "include_thought": bool(include_thought),
+                "model_id_input_mode": "all_missing",
+                "text_batch_size": int(text_batch_size),
+            }
+            (cache_dir / "metadata.json").write_text(
+                json.dumps(metadata, ensure_ascii=False, indent=2, default=_json_default),
+                encoding="utf-8",
+            )
+            LOGGER.info("Saved global row matrix cache metadata: %s", cache_dir / "metadata.json")
+            del row_df, dense_df, prefix_ids, X_dense, X_af, X_thought
+            gc.collect()
+        else:
+            LOGGER.info("Global row matrix cache is complete: %s", cache_dir)
+
+    prefix_ids = np.load(cache_dir / GLOBAL_ROW_MATRIX_CACHE_FILENAMES["prefix_ids"], allow_pickle=False)
+    cache: dict[str, Any] = {
+        "prefix_ids": prefix_ids.astype(str),
+        "X_dense": sparse.load_npz(cache_dir / GLOBAL_ROW_MATRIX_CACHE_FILENAMES["X_dense"]).tocsr(),
+        "X_af": sparse.load_npz(cache_dir / GLOBAL_ROW_MATRIX_CACHE_FILENAMES["X_af"]).tocsr(),
+    }
+    if include_thought:
+        cache["X_thought"] = sparse.load_npz(cache_dir / GLOBAL_ROW_MATRIX_CACHE_FILENAMES["X_thought"]).tocsr()
+    else:
+        cache["X_thought"] = sparse.csr_matrix((len(prefix_ids), 0))
+    return cache
+
+
+def slice_global_row_matrix_cache(
+    *,
+    cache: dict[str, Any],
+    df_train: pd.DataFrame,
+    df_valid: pd.DataFrame,
+    df_test: pd.DataFrame,
+    include_thought: bool,
+) -> dict[str, sparse.csr_matrix]:
+    positions = pd.Series(
+        np.arange(len(cache["prefix_ids"]), dtype=np.int64),
+        index=pd.Index(cache["prefix_ids"].astype(str)),
+    )
+
+    def row_positions(frame: pd.DataFrame, split_name: str) -> np.ndarray:
+        values = positions.reindex(frame["prefix_id"].astype(str)).to_numpy()
+        if pd.isna(values).any():
+            missing = int(pd.isna(values).sum())
+            raise RuntimeError(f"Global row cache missing {missing} prefix_id value(s) for split={split_name}.")
+        return values.astype(np.int64)
+
+    train_pos = row_positions(df_train, "train")
+    valid_pos = row_positions(df_valid, "valid")
+    test_pos = row_positions(df_test, "test")
+    empty_train = sparse.csr_matrix((len(df_train), 0))
+    empty_valid = sparse.csr_matrix((len(df_valid), 0))
+    empty_test = sparse.csr_matrix((len(df_test), 0))
+    X_thought = cache.get("X_thought")
+
+    return {
+        "train_dense": cache["X_dense"][train_pos].tocsr(),
+        "valid_dense": cache["X_dense"][valid_pos].tocsr(),
+        "test_dense": cache["X_dense"][test_pos].tocsr(),
+        "train_af": cache["X_af"][train_pos].tocsr(),
+        "valid_af": cache["X_af"][valid_pos].tocsr(),
+        "test_af": cache["X_af"][test_pos].tocsr(),
+        "train_thought": X_thought[train_pos].tocsr() if include_thought and X_thought is not None else empty_train,
+        "valid_thought": X_thought[valid_pos].tocsr() if include_thought and X_thought is not None else empty_valid,
+        "test_thought": X_thought[test_pos].tocsr() if include_thought and X_thought is not None else empty_test,
+    }
+
+
 def _transform_tfidf_subset_streaming(
     *,
     prefix_table_path: Path,
@@ -1512,6 +2033,13 @@ def main() -> int:
                 X_train_model, X_valid_model, X_test_model = X_train_af_base, X_valid_af_base, X_test_af_base
             feature_names = list(names_af_base)
             removed_names: list[str] = []
+            remove_fn = spec.get("remove_fn")
+            if remove_fn is not None:
+                keep_cols, removed_names = _make_column_mask(feature_names, remove_fn)
+                X_train_model = X_train_model[:, keep_cols].tocsr()
+                X_valid_model = X_valid_model[:, keep_cols].tocsr()
+                X_test_model = X_test_model[:, keep_cols].tocsr()
+                feature_names = [feature_names[idx] for idx in keep_cols]
         elif spec["base"] == "af_thought":
             if args.low_memory:
                 X_train_model = sparse.hstack([X_train_dense, X_train_af, X_train_thought], format="csr")
