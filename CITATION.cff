@@ -1,0 +1,56 @@
+cff-version: 1.2.0
+message: "If you use EarlyEval in your research, please cite the paper below."
+title: "EarlyEval: Cheaper Agent Evaluation via Early Outcome Prediction"
+abstract: >-
+  EarlyEval is a lightweight framework that reduces the cost of agentic benchmark
+  evaluation by predicting a run's final outcome from its partial trajectory. It
+  trains a pair of LightGBM success and failure classifiers over behavioral,
+  textual, and reference-solution features, and halts an agent run the moment
+  either classifier crosses a calibrated confidence threshold.
+type: software
+license: MIT
+repository-code: "https://github.com/inphotoo/earlyeval"
+authors:
+  - family-names: Shi
+    given-names: Yuling
+    affiliation: Shanghai Jiao Tong University
+  - family-names: Sun
+    given-names: Zhensu
+    affiliation: Singapore Management University
+  - family-names: Dong
+    given-names: Junsen
+    affiliation: Shanghai Jiao Tong University
+  - family-names: Wan
+    given-names: Chengcheng
+    affiliation: East China Normal University
+  - family-names: Lo
+    given-names: David
+    affiliation: Singapore Management University
+  - family-names: Gu
+    given-names: Xiaodong
+    affiliation: Shanghai Jiao Tong University
+keywords:
+  - llm-agents
+  - agent-evaluation
+  - efficient-benchmarking
+  - early-stopping
+  - swe-bench
+preferred-citation:
+  type: article
+  title: "EarlyEval: Cheaper Agent Evaluation via Early Outcome Prediction"
+  year: 2026
+  journal: "arXiv preprint arXiv:2609.02783"
+  url: "https://arxiv.org/abs/2609.02783"
+  authors:
+    - family-names: Shi
+      given-names: Yuling
+    - family-names: Sun
+      given-names: Zhensu
+    - family-names: Dong
+      given-names: Junsen
+    - family-names: Wan
+      given-names: Chengcheng
+    - family-names: Lo
+      given-names: David
+    - family-names: Gu
+      given-names: Xiaodong

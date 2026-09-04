@@ -33,6 +33,9 @@ cache/
 *.bin
 *.safetensors
 
+# Small committed fixtures that the patterns above would otherwise swallow
+!examples/*.csv
+
 # Logs
 *.log
 *.nohup.log

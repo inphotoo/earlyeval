@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📄 Read the paper
+    url: https://arxiv.org/abs/2609.02783
+    about: Method details, experimental protocol, and full result tables.
+  - name: 🔬 Reproduction guide
+    url: https://github.com/inphotoo/earlyeval#-reproducing-the-paper
+    about: Stage-by-stage commands for rebuilding the paper's numbers.
+  - name: 🤝 Contributing guide
+    url: https://github.com/inphotoo/earlyeval/blob/main/CONTRIBUTING.md
+    about: Development setup, conventions, and what makes a change easy to review.

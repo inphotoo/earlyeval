@@ -1,0 +1,83 @@
+name: 🐛 Bug report
+description: Something fails to run, or runs but disagrees with the paper.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a report. The more precisely we can reproduce it, the faster it gets fixed.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you get instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The exact command you ran, including environment variables.
+      render: bash
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output or traceback
+      description: Paste the full traceback or the surprising output.
+      render: shell
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area?
+      options:
+        - CLI
+        - Policy / safe-stop
+        - SWE-bench Verified pipeline
+        - TerminalBench / Toolathlon robustness
+        - Ablations
+        - Architecture baselines
+        - Reporting / tables
+        - Setup and dependencies
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.11.8"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Ubuntu 22.04 / macOS 14.5"
+    validations:
+      required: true
+
+  - type: textarea
+    id: deps
+    attributes:
+      label: Key package versions
+      description: "Output of: pip freeze | grep -Ei 'lightgbm|scikit|pandas|numpy|pyarrow'"
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I ran `python -m earlyeval.cli pipeline current-safe-stop --mode smoke` and reported whether it passed.
+        - label: I searched existing issues for a duplicate.

@@ -1,0 +1,47 @@
+name: 💡 Feature or benchmark request
+description: Propose a capability, a new benchmark, or an improvement.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the situation, not the solution. What does the current code make hard?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What would you like EarlyEval to do?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of request
+      options:
+        - Support a new agentic benchmark
+        - New or improved features for the predictor
+        - Alternative predictor backbone
+        - Policy / thresholding behavior
+        - Developer experience (CLI, config, packaging)
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you tried, and why they were not enough.
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Would you be willing to contribute this?
+      options:
+        - label: I would be willing to open a pull request for this.
