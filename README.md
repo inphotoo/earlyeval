@@ -307,6 +307,16 @@ To pin a specific interpreter for the shell entrypoints:
 export PYTHON_BIN=/path/to/python
 ```
 
+> **macOS:** LightGBM's wheels link against the OpenMP runtime but do not bundle it, so
+> `import lightgbm` fails with `Library not loaded: @rpath/libomp.dylib` until you install it
+> separately:
+>
+> ```bash
+> brew install libomp
+> ```
+>
+> Linux wheels are self-contained and need no extra step.
+
 ### 30-second smoke test
 
 Apply the paper's locked safe-stop policy to a bundled synthetic prediction table. No benchmark data
