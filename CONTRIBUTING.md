@@ -35,8 +35,8 @@ python -m earlyeval.cli pipeline current-safe-stop --mode smoke
 python -m earlyeval.cli check preflight --paths-config configs/paths.example.yaml
 ```
 
-The smoke test runs against a bundled synthetic table and needs no benchmark data, so it should pass
-on a clean checkout. If it does not, that is a bug worth reporting on its own.
+The smoke test runs against a bundled fixture and needs no benchmark data, so it should pass on a
+clean checkout. If it does not, that is a bug worth reporting on its own.
 
 Preflight is a different kind of signal: without benchmark data it will report `"ok": false` and a
 long list of missing paths, which is expected. Compare its output before and after your change

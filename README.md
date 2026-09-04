@@ -319,8 +319,8 @@ export PYTHON_BIN=/path/to/python
 
 ### 30-second smoke test
 
-Apply the paper's locked safe-stop policy to a bundled synthetic prediction table. No benchmark data
-or trained model required:
+Apply the paper's locked safe-stop policy to a bundled prediction table built from nine real
+mini-SWE-agent runs on SWE-bench Verified. No benchmark data or trained model required:
 
 ```bash
 python -m earlyeval.cli pipeline current-safe-stop --mode smoke
@@ -381,7 +381,7 @@ python -m earlyeval.cli policy apply \
 
 The table needs `traj_id`, `label`, `prefix_step_idx`, and the two calibrated probability columns
 (`prob_cal_safe_success__<predictor>`, `prob_cal_safe_failure__<predictor>`). See
-[`examples/smoke_predictions.csv`](examples/smoke_predictions.csv) for the expected schema.
+[`examples/`](examples/) for the expected schema and a worked fixture.
 
 </details>
 
@@ -410,7 +410,7 @@ earlyeval/
 configs/               # Experiment config, policy presets, registry, path templates
 scripts/               # Shell entrypoints for every stage
 reporting/             # Rebuilds paper-facing RQ tables from completed artifacts
-examples/              # Tiny synthetic inputs for smoke tests
+examples/              # Smoke-test fixture built from public SWE-bench Verified results
 assets/                # Figures used in this README
 ```
 
